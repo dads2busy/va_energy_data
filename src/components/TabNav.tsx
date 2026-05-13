@@ -3,20 +3,13 @@
 import { useQueryState } from "nuqs";
 
 const TABS = [
-  { id: "overview", chapter: "I", label: "Overview", phase: "live" },
-  { id: "ev", chapter: "II", label: "EV Infrastructure", phase: "live" },
-  { id: "residential", chapter: "III", label: "Residential Adoption", phase: "live" },
-  { id: "data-centers", chapter: "IV", label: "Data Center Pressure", phase: "live" },
-  { id: "retrofit", chapter: "V", label: "Retrofit & Equity", phase: "later" },
+  { id: "overview", chapter: "I", label: "Overview" },
+  { id: "ev", chapter: "II", label: "EV Infrastructure" },
+  { id: "residential", chapter: "III", label: "Residential Adoption" },
+  { id: "data-centers", chapter: "IV", label: "Data Center Pressure" },
 ] as const;
 
 export type TabId = (typeof TABS)[number]["id"];
-
-const PHASE_CHIP: Record<string, string> = {
-  live: "text-[--color-gen-deep]",
-  next: "text-[--color-ink-faint]",
-  later: "text-[--color-ink-faint]",
-};
 
 export function TabNav() {
   const [activeTab, setActiveTab] = useQueryState("tab", {
@@ -40,7 +33,7 @@ export function TabNav() {
               >
                 <span
                   className={`font-mono text-[10px] uppercase tracking-widest ${
-                    active ? "text-[--color-energy]" : PHASE_CHIP[t.phase]
+                    active ? "text-[--color-energy]" : "text-[--color-gen-deep]"
                   }`}
                 >
                   §{t.chapter}
@@ -53,11 +46,6 @@ export function TabNav() {
                     aria-hidden="true"
                     className="absolute inset-x-3 -bottom-px h-[2px] bg-[--color-energy]"
                   />
-                )}
-                {!active && t.phase !== "live" && (
-                  <span className="font-mono text-[9px] uppercase tracking-widest text-[--color-ink-faint]">
-                    future
-                  </span>
                 )}
               </button>
             </li>
