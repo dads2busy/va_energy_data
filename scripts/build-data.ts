@@ -4,6 +4,9 @@
  * Phase 2 adds EVChargingStations (8 static measures) and EVChargingDemand
  * (2 hourly measures stored as 24-element arrays). Static measures stay scalar;
  * hourly measures become arrays in [hour 0, ..., hour 23] order.
+ *
+ * Phase 4 adds DataCentersProjected (6 measures × 20 scenarios) and splits the
+ * combined projected-points GeoJSON into 20 per-scenario files.
  */
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
 import { parse } from "csv-parse/sync";
@@ -22,6 +25,51 @@ const OUT_GEO = path.resolve(process.cwd(), "public/geo");
 
 mkdirSync(OUT_DATA, { recursive: true });
 mkdirSync(OUT_GEO, { recursive: true });
+
+// --- GeoJSON splitter ---
+
+/**
+ * Split a combined GeoJSON FeatureCollection by a `properties.<key>` value,
+ * writing one file per unique value to `outDir/<sanitized_value>.geojson`.
+ * Returns the sorted list of scenario values and per-scenario feature counts.
+ */
+function splitGeoJsonByProperty(
+  inputPath: string,
+  propertyKey: string,
+  outDir: string
+): { values: string[]; counts: Record<string, number> } {
+  mkdirSync(outDir, { recursive: true });
+  const data = JSON.parse(readFileSync(inputPath, "utf8")) as {
+    type: string;
+    features: Array<{ properties?: Record<string, unknown> }>;
+    [k: string]: unknown;
+  };
+  const groups: Record<string, typeof data.features> = {};
+  for (const feat of data.features) {
+    const v = String(feat.properties?.[propertyKey] ?? "");
+    if (!v) continue;
+    if (!groups[v]) groups[v] = [];
+    groups[v].push(feat);
+  }
+  if (Object.keys(groups).length === 0) {
+    throw new Error(
+      `splitGeoJsonByProperty: no features had property '${propertyKey}'. ` +
+        `Check the GeoJSON schema — available keys: ${
+          data.features[0]
+            ? Object.keys(data.features[0].properties ?? {}).join(", ")
+            : "(no features)"
+        }`
+    );
+  }
+  const counts: Record<string, number> = {};
+  for (const [v, feats] of Object.entries(groups)) {
+    const safe = v.replace(/[^A-Za-z0-9_]/g, "_");
+    const out = { type: "FeatureCollection", features: feats };
+    writeFileSync(path.join(outDir, `${safe}.geojson`), JSON.stringify(out));
+    counts[v] = feats.length;
+  }
+  return { values: Object.keys(groups).sort(), counts };
+}
 
 interface CsvRow {
   geoid: string;
@@ -141,6 +189,22 @@ async function loadEVChargingDemandCounty(): Promise<CountyData> {
   return out;
 }
 
+// --- DataCentersProjected (6 measures × 20 scenarios) ---
+
+async function loadDataCentersProjectedCounty(): Promise<CountyData> {
+  const rows = await loadLongFormatCsv(
+    "va_ct_im3_2035_data_centers_projected.csv.xz"
+  );
+  const out: CountyData = {};
+  for (const row of rows) {
+    if (row.region_type !== "county") continue;
+    const code = codeFor(row.measure, row.scenario, row.data_method, false);
+    if (!out[row.geoid]) out[row.geoid] = {};
+    out[row.geoid][code] = Number(row.value);
+  }
+  return out;
+}
+
 /**
  * ResidentialEnergyScenario: 5 measures — 4 static scalars + 1 hourly array.
  * pv_generation_kwh: 24-element array (one row per hour, datetime carries T##:).
@@ -224,9 +288,20 @@ async function main() {
     `  Residential (tract): ${Object.keys(residentialTract).length} tracts`
   );
 
+  const dcProjected = await loadDataCentersProjectedCounty();
+  console.log(
+    `  DataCentersProjected: ${Object.keys(dcProjected).length} counties × 20 scenarios`
+  );
+
   const counties = mergeCountyData(
-    mergeCountyData(mergeCountyData(dataCenters, evStations), evDemand),
-    residentialCounty
+    mergeCountyData(
+      mergeCountyData(
+        mergeCountyData(dataCenters, evStations),
+        evDemand
+      ),
+      residentialCounty
+    ),
+    dcProjected
   );
   console.log(`  Merged counties: ${Object.keys(counties).length}`);
 
@@ -267,6 +342,36 @@ async function main() {
     path.join(SOURCE_DIR, "va_pt_sim_2026_ev_charging_demand.geojson"),
     path.join(OUT_GEO, "ev_demand_locations.geojson")
   );
+
+  // DataCenters existing (319 sites, single scenario)
+  copyFileSync(
+    path.join(SOURCE_DIR, "va_pt_im3_2026_data_centers.geojson"),
+    path.join(OUT_GEO, "dc_existing.geojson")
+  );
+
+  // DataCentersProjected — split the combined GeoJSON into 20 per-scenario files.
+  // Actual filename: va_pt_im3_2035_data_centers_projected.geojson
+  // (differs from the plan's assumed name which included _va_2030_run30_)
+  const projectedInput = path.join(
+    SOURCE_DIR,
+    "va_pt_im3_2035_data_centers_projected.geojson"
+  );
+  const projectedOutDir = path.join(OUT_GEO, "dc_projected");
+  const split = splitGeoJsonByProperty(projectedInput, "scenario", projectedOutDir);
+  const totalSplitFeatures = Object.values(split.counts).reduce(
+    (a, b) => a + b,
+    0
+  );
+  console.log(
+    `  dc_projected: ${split.values.length} scenarios, ${totalSplitFeatures} total features`
+  );
+
+  // Write the scenario list for Tab 3's selector
+  writeFileSync(
+    path.join(OUT_DATA, "dc_scenarios.json"),
+    JSON.stringify(split.values, null, 2)
+  );
+  console.log(`  dc_scenarios.json: ${split.values.length} scenarios`);
 
   console.log("Done.");
 }
