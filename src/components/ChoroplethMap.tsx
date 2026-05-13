@@ -51,6 +51,10 @@ interface Props {
   countyData: Record<string, Record<string, number>>;
   measureLabel: string;
   pointLayers?: PointLayerSpec[];
+  /** Which boundary file to render. Default "county" preserves Phase 1+2 behavior. */
+  region?: "county" | "tract";
+  /** Optional formatter for tooltip + legend display (e.g. percentage formatting). */
+  formatValue?: (v: number) => string;
 }
 
 export function ChoroplethMap({
@@ -58,6 +62,8 @@ export function ChoroplethMap({
   countyData,
   measureLabel,
   pointLayers,
+  region = "county",
+  formatValue,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,7 +82,9 @@ export function ChoroplethMap({
         const L = (await import("leaflet")).default;
         await import("leaflet.markercluster");
 
-        const resp = await fetch(`${BASE}/geo/county.geojson`);
+        const boundaryUrl =
+          region === "tract" ? `${BASE}/geo/tract.geojson` : `${BASE}/geo/county.geojson`;
+        const resp = await fetch(boundaryUrl);
         const geo = (await resp.json()) as FeatureCollection;
 
         if (cancelled || !containerRef.current) return;
@@ -85,7 +93,7 @@ export function ChoroplethMap({
 
         mapInstance = L.map(containerRef.current, {
           center: [37.6, -78.5],
-          zoom: 7,
+          zoom: region === "tract" ? 8 : 7,
           scrollWheelZoom: false,
           zoomControl: true,
           attributionControl: true,
@@ -131,7 +139,11 @@ export function ChoroplethMap({
               const name =
                 feature.properties.region_name ?? feature.properties.geoid;
               const display =
-                typeof v === "number" ? v.toLocaleString() : "—";
+                typeof v === "number"
+                  ? formatValue
+                    ? formatValue(v)
+                    : v.toLocaleString()
+                  : "—";
               layer.bindTooltip(
                 `<div style="font-family: var(--font-display); font-weight: 600; font-size: 12px; color: var(--color-ink);">${name}</div>
                  <div style="font-family: var(--font-mono); font-size: 10px; color: var(--color-ink-muted); margin-top: 2px;">${measureLabel}: <strong style="color: var(--color-energy-deep)">${display}</strong></div>`,
@@ -245,7 +257,7 @@ export function ChoroplethMap({
       if (mapInstance) mapInstance.remove();
       choroplethLayerRef.current = null;
     };
-  }, [indicatorCode, countyData, measureLabel, setSelectedGeoid, pointLayers]);
+  }, [indicatorCode, countyData, measureLabel, setSelectedGeoid, pointLayers, region]);
 
   // Narrow effect: re-style selection border without rebuilding the map.
   useEffect(() => {
@@ -294,6 +306,7 @@ export function ChoroplethMap({
             .filter((v) => Number.isFinite(v))
         )}
         label={measureLabel}
+        formatValue={formatValue}
       />
     </div>
   );
@@ -303,16 +316,20 @@ function ChoroplethLegend({
   ramp,
   max,
   label,
+  formatValue,
 }: {
   ramp: string[];
   max: number;
   label: string;
+  formatValue?: (v: number) => string;
 }) {
   // Compute the value at each step boundary (using the same gamma=0.7)
   const boundaries = ramp.map((_, i) => {
     const frac = (i + 1) / ramp.length;
-    return Math.round(Math.pow(frac, 1 / 0.7) * max);
+    return Math.pow(frac, 1 / 0.7) * max;
   });
+  const fmt = (v: number): string =>
+    formatValue ? formatValue(v) : Math.round(v).toLocaleString();
 
   return (
     <div className="absolute bottom-4 left-4 z-[400] max-w-[300px] border border-[--color-paper-edge] bg-[--color-paper]/95 px-3 py-2 backdrop-blur-sm">
@@ -325,11 +342,11 @@ function ChoroplethLegend({
         ))}
       </div>
       <div className="mt-1 flex justify-between font-mono text-[9px] tabular-nums text-[--color-ink-muted]">
-        <span>0</span>
+        <span>{fmt(0)}</span>
         {boundaries.slice(0, -1).map((b, i) => (
-          <span key={i}>{b.toLocaleString()}</span>
+          <span key={i}>{fmt(b)}</span>
         ))}
-        <span>{max.toLocaleString()}</span>
+        <span>{fmt(max)}</span>
       </div>
     </div>
   );
