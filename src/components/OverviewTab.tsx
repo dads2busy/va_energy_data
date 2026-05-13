@@ -30,13 +30,22 @@ export function OverviewTab() {
       </div>
     );
 
+  // Cast to scalar-only shape for ChoroplethMap (filters out any hourly arrays)
+  const choroplethData: Record<string, Record<string, number>> = {};
+  for (const geoid of Object.keys(countyData)) {
+    const entry = countyData[geoid][indicatorCode];
+    if (typeof entry === "number") {
+      choroplethData[geoid] = { [indicatorCode]: entry };
+    }
+  }
+
   // Compute snapshot stats
-  const values = Object.values(countyData)
+  const values = Object.values(choroplethData)
     .map((m) => m[indicatorCode])
     .filter((v) => Number.isFinite(v));
   const total = values.reduce((a, b) => a + b, 0);
   const max = Math.max(...values);
-  const topGeoid = Object.entries(countyData).find(
+  const topGeoid = Object.entries(choroplethData).find(
     ([, m]) => m[indicatorCode] === max
   )?.[0];
 
@@ -63,7 +72,7 @@ export function OverviewTab() {
         <div className="mt-4">
           <ChoroplethMap
             indicatorCode={indicatorCode}
-            countyData={countyData}
+            countyData={choroplethData}
             measureLabel="Data center records"
           />
         </div>

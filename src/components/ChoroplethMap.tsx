@@ -2,8 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSelectionStore } from "./selectionStore";
-// Note: leaflet.markercluster augments L on import; the import side-effect is what matters
-import "leaflet.markercluster";
 
 interface FeatureCollection {
   type: "FeatureCollection";
@@ -57,6 +55,8 @@ export function ChoroplethMap({
     (async () => {
       try {
         const L = (await import("leaflet")).default;
+        // Markercluster augments L; must be a dynamic import to avoid SSR failures.
+        await import("leaflet.markercluster");
 
         const resp = await fetch(`${BASE}/geo/county.geojson`);
         const geo = (await resp.json()) as FeatureCollection;
