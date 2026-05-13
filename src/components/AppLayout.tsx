@@ -4,7 +4,6 @@ import { useQueryState } from "nuqs";
 import { DataProvider } from "./DataProvider";
 import { TabNav, type TabId } from "./TabNav";
 import { OverviewTab } from "./OverviewTab";
-import { TabPlaceholder } from "./TabPlaceholder";
 import { EVTab } from "./EVTab";
 import { ResidentialTab } from "./ResidentialTab";
 import { DataCentersTab } from "./DataCentersTab";
@@ -24,20 +23,6 @@ export function AppLayout() {
           {tab === "ev" && <EVTab />}
           {tab === "residential" && <ResidentialTab />}
           {tab === "data-centers" && <DataCentersTab />}
-          {tab === "retrofit" && (
-            <TabPlaceholder
-              chapter="V"
-              title="Retrofit & Equity"
-              subtitle="The RAISE budget allocation with an income-equity dial; trade total energy savings against equitable distribution across counties and income groups."
-              papers={[
-                {
-                  short: "RAISE",
-                  long: "Kishore, Sundar, Deka, Marathe — Two-tier retrofit allocation",
-                  href: "#",
-                },
-              ]}
-            />
-          )}
         </main>
         <SiteFooter />
       </div>
@@ -60,7 +45,7 @@ function SiteHeader() {
             </span>
           </h1>
           <p className="mt-3 max-w-2xl text-sm text-[--color-ink-muted]">
-            An interactive companion to four working papers on the residential
+            An interactive companion to three working papers on the residential
             energy digital twin of Virginia — its households, its grid, its
             charging infrastructure, and its projected 2030 future.
           </p>
@@ -144,7 +129,7 @@ function SiteFooter() {
           Source papers
         </span>
       </div>
-      <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-3">
         <PaperRef
           tag="§II"
           title="CHARGE-MAP"
@@ -156,12 +141,6 @@ function SiteFooter() {
           title="REVI-Twin"
           subtitle="Kishore, Islam, Marathe — Digital twin of VA residential energy"
           venue="npj 2026"
-        />
-        <PaperRef
-          tag="§V"
-          title="RAISE"
-          subtitle="Kishore, Sundar, Deka, Marathe — Two-tier retrofit allocation"
-          venue="PNAS Nexus, draft"
         />
         <PaperRef
           tag="§III"
