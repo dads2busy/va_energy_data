@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSelectionStore } from "./selectionStore";
+// Note: leaflet.markercluster augments L on import; the import side-effect is what matters
+import "leaflet.markercluster";
 
 interface FeatureCollection {
   type: "FeatureCollection";
@@ -14,16 +16,32 @@ interface FeatureCollection {
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
+interface PointLayerSpec {
+  /** URL or relative path to the GeoJSON file */
+  geojsonUrl: string;
+  /** Whether to cluster (use for dense layers). */
+  cluster: boolean;
+  /** Fill color for markers */
+  color: string;
+  /** Marker radius in pixels */
+  radius?: number;
+  /** Display name for tooltips */
+  layerLabel: string;
+}
+
 interface Props {
   indicatorCode: string;
   countyData: Record<string, Record<string, number>>;
   measureLabel: string;
+  /** Optional point layers to overlay on the choropleth. */
+  pointLayers?: PointLayerSpec[];
 }
 
 export function ChoroplethMap({
   indicatorCode,
   countyData,
   measureLabel,
+  pointLayers,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +120,70 @@ export function ChoroplethMap({
             });
           },
         }).addTo(mapInstance);
+
+        // Point overlays (Phase 2)
+        if (pointLayers) {
+          for (const spec of pointLayers) {
+            const resp = await fetch(`${BASE}${spec.geojsonUrl}`);
+            if (!resp.ok) {
+              console.warn("Failed to load point layer", spec.geojsonUrl);
+              continue;
+            }
+            const data = await resp.json();
+            if (cancelled) return;
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let layer: any;
+            if (spec.cluster) {
+              layer = L.markerClusterGroup({ chunkedLoading: true });
+              const pointsLayer = L.geoJSON(data, {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                pointToLayer: (_feat: any, latlng: any) =>
+                  L.circleMarker(latlng, {
+                    radius: spec.radius ?? 4,
+                    fillColor: spec.color,
+                    color: "#fff",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.85,
+                  }),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                onEachFeature: (feature: any, lyr: any) => {
+                  const props = feature.properties ?? {};
+                  const name =
+                    props.facility_name ?? props.facility_id ?? "(unnamed)";
+                  lyr.bindTooltip(`<b>${name}</b><br>${spec.layerLabel}`, {
+                    sticky: true,
+                  });
+                },
+              });
+              layer.addLayer(pointsLayer);
+            } else {
+              layer = L.geoJSON(data, {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                pointToLayer: (_feat: any, latlng: any) =>
+                  L.circleMarker(latlng, {
+                    radius: spec.radius ?? 4,
+                    fillColor: spec.color,
+                    color: "#fff",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.85,
+                  }),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                onEachFeature: (feature: any, lyr: any) => {
+                  const props = feature.properties ?? {};
+                  const name =
+                    props.facility_name ?? props.facility_id ?? "(unnamed)";
+                  lyr.bindTooltip(`<b>${name}</b><br>${spec.layerLabel}`, {
+                    sticky: true,
+                  });
+                },
+              });
+            }
+            layer.addTo(mapInstance);
+          }
+        }
       } catch (e) {
         setError(String(e));
       }
@@ -111,7 +193,7 @@ export function ChoroplethMap({
       cancelled = true;
       if (mapInstance) mapInstance.remove();
     };
-  }, [indicatorCode, countyData, measureLabel, selectedGeoid, setSelectedGeoid]);
+  }, [indicatorCode, countyData, measureLabel, selectedGeoid, setSelectedGeoid, pointLayers]);
 
   if (error) return <div className="text-red-600">Map error: {error}</div>;
   return (
