@@ -6,6 +6,7 @@ import { TabNav, type TabId } from "./TabNav";
 import { OverviewTab } from "./OverviewTab";
 import { TabPlaceholder } from "./TabPlaceholder";
 import { EVTab } from "./EVTab";
+import { ResidentialTab } from "./ResidentialTab";
 
 export function AppLayout() {
   const [tab] = useQueryState("tab", {
@@ -20,25 +21,7 @@ export function AppLayout() {
         <main className="px-8 pb-16 pt-8">
           {tab === "overview" && <OverviewTab />}
           {tab === "ev" && <EVTab />}
-          {tab === "residential" && (
-            <TabPlaceholder
-              chapter="III"
-              title="Residential Adoption"
-              subtitle="PV, EV, and battery adoption rates layered on top of the synthetic VA household population. Hourly PV-generation profiles by county."
-              papers={[
-                {
-                  short: "REVI-Twin",
-                  long: "Kishore, Islam, Marathe — AI digital twin for VA residential energy",
-                  href: "https://www.nature.com/npjcleanenergy",
-                },
-                {
-                  short: "Thorve scidata",
-                  long: "Thorve et al. — National hourly synthetic residential energy",
-                  href: "#",
-                },
-              ]}
-            />
-          )}
+          {tab === "residential" && <ResidentialTab />}
           {tab === "data-centers" && (
             <TabPlaceholder
               chapter="IV"
