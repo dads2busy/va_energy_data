@@ -36,14 +36,6 @@ export function ChoroplethMap({
     (async () => {
       try {
         const L = (await import("leaflet")).default;
-        // Inject Leaflet CSS once
-        if (!document.getElementById("leaflet-css")) {
-          const link = document.createElement("link");
-          link.id = "leaflet-css";
-          link.rel = "stylesheet";
-          link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-          document.head.appendChild(link);
-        }
 
         const resp = await fetch(`${BASE}/geo/county.geojson`);
         const geo = (await resp.json()) as FeatureCollection;

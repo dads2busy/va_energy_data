@@ -1,3 +1,8 @@
 @import "tailwindcss";
 
-/* Leaflet ships its own CSS; loaded at the component level (dynamic import). */
+/* Leaflet base CSS — required for tile rendering */
+@import "leaflet/dist/leaflet.css";
+
+/* Marker clustering CSS */
+@import "leaflet.markercluster/dist/MarkerCluster.css";
+@import "leaflet.markercluster/dist/MarkerCluster.Default.css";
