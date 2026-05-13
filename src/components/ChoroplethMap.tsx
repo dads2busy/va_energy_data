@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSelectionStore } from "./selectionStore";
 
 interface FeatureCollection {
   type: "FeatureCollection";
@@ -26,6 +27,8 @@ export function ChoroplethMap({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const selectedGeoid = useSelectionStore((s) => s.selectedGeoid);
+  const setSelectedGeoid = useSelectionStore((s) => s.setSelectedGeoid);
 
   useEffect(() => {
     // Leaflet is window-dependent — lazy import at runtime.
@@ -77,11 +80,12 @@ export function ChoroplethMap({
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           style: (feature: any) => {
             const v = countyData[feature.properties.geoid]?.[indicatorCode];
+            const isSelected = feature.properties.geoid === selectedGeoid;
             return {
               fillColor: colorFor(v),
               fillOpacity: 0.85,
-              color: "#555",
-              weight: 0.5,
+              color: isSelected ? "#dc2626" : "#555",
+              weight: isSelected ? 2.5 : 0.5,
             };
           },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -93,6 +97,9 @@ export function ChoroplethMap({
               `<b>${name}</b><br>${measureLabel}: ${v ?? "n/a"}`,
               { sticky: true }
             );
+            layer.on({
+              click: () => setSelectedGeoid(feature.properties.geoid),
+            });
           },
         }).addTo(mapInstance);
       } catch (e) {
@@ -104,7 +111,7 @@ export function ChoroplethMap({
       cancelled = true;
       if (mapInstance) mapInstance.remove();
     };
-  }, [indicatorCode, countyData, measureLabel]);
+  }, [indicatorCode, countyData, measureLabel, selectedGeoid, setSelectedGeoid]);
 
   if (error) return <div className="text-red-600">Map error: {error}</div>;
   return (
