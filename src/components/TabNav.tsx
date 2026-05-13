@@ -5,8 +5,8 @@ import { useQueryState } from "nuqs";
 const TABS = [
   { id: "overview", chapter: "I", label: "Overview", phase: "live" },
   { id: "ev", chapter: "II", label: "EV Infrastructure", phase: "live" },
-  { id: "residential", chapter: "III", label: "Residential Adoption", phase: "next" },
-  { id: "data-centers", chapter: "IV", label: "Data Center Pressure", phase: "next" },
+  { id: "residential", chapter: "III", label: "Residential Adoption", phase: "live" },
+  { id: "data-centers", chapter: "IV", label: "Data Center Pressure", phase: "live" },
   { id: "retrofit", chapter: "V", label: "Retrofit & Equity", phase: "later" },
 ] as const;
 
@@ -56,7 +56,7 @@ export function TabNav() {
                 )}
                 {!active && t.phase !== "live" && (
                   <span className="font-mono text-[9px] uppercase tracking-widest text-[--color-ink-faint]">
-                    {t.phase === "next" ? "next chapter" : "future"}
+                    future
                   </span>
                 )}
               </button>

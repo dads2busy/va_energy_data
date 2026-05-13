@@ -218,7 +218,7 @@ export function DataCentersTab() {
             <LegendDot
               color="#b9430b"
               label="Projected centroid"
-              count="~3,770 · this scenario"
+              count="this scenario only"
             />
           </div>
         </div>

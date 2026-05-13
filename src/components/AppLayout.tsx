@@ -174,7 +174,7 @@ function SiteFooter() {
         <div className="font-mono">
           Built on Social-Data-Commons · va_energy_data
         </div>
-        <div className="font-mono">v0.1 · Phase 3 — Residential Adoption</div>
+        <div className="font-mono">v0.1 · Phase 4 — Data Center Pressure</div>
       </div>
     </footer>
   );
