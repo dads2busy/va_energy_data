@@ -13,12 +13,15 @@ export interface VariableMeta {
   scenario: string;
   data_method: string;
   unit?: string;
+  /** True for measures stored as 24-element hourly arrays rather than scalars. */
+  hourly?: boolean;
 }
 
 interface DataState {
   loading: boolean;
   error: string | null;
-  countyData: Record<string, Record<string, number>> | null;
+  /** County data keyed by FIPS geoid. Scalar measures are numbers; hourly measures are 24-element number arrays. */
+  countyData: Record<string, Record<string, number | number[]>> | null;
   variables: Record<string, VariableMeta> | null;
 }
 

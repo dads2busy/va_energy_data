@@ -1,8 +1,9 @@
 /**
  * Build-time data transform: CSV.xz from social-data-commons → JSON in public/data/.
  *
- * Phase 1 wires only the DataCenters county CSV. Subsequent phases extend
- * SOURCE_FILES and the wide-format keying logic.
+ * Phase 2 adds EVChargingStations (8 static measures) and EVChargingDemand
+ * (2 hourly measures stored as 24-element arrays). Static measures stay scalar;
+ * hourly measures become arrays in [hour 0, ..., hour 23] order.
  */
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
 import { parse } from "csv-parse/sync";
@@ -51,42 +52,104 @@ async function loadLongFormatCsv(filename: string): Promise<CsvRow[]> {
 
 // --- variable code allocator ---
 
-const variableCodes: Record<string, string> = {}; // measure_scenario → code (e.g., "X1")
-const variableMeta: Record<
-  string,
-  { measure: string; scenario: string; unit?: string; data_method: string }
-> = {};
+interface VariableMeta {
+  measure: string;
+  scenario: string;
+  data_method: string;
+  hourly: boolean;
+}
+
+const variableCodes: Record<string, string> = {}; // measure_scenario → code
+const variableMeta: Record<string, VariableMeta> = {};
 let nextCodeIndex = 1;
 
 function codeFor(
   measure: string,
   scenario: string,
-  data_method: string
+  data_method: string,
+  hourly: boolean
 ): string {
   const key = `${measure}__${scenario}`;
   if (!variableCodes[key]) {
     const code = `X${nextCodeIndex++}`;
     variableCodes[key] = code;
-    variableMeta[code] = { measure, scenario, data_method };
+    variableMeta[code] = { measure, scenario, data_method, hourly };
   }
   return variableCodes[key];
 }
 
-// --- per-pipeline loaders (Phase 1: just DataCenters) ---
+// --- per-pipeline loaders ---
 
-async function loadDataCentersCounty(): Promise<Record<string, Record<string, number>>> {
+type CountyValues = Record<string, number | number[]>;
+type CountyData = Record<string, CountyValues>;
+
+async function loadDataCentersCounty(): Promise<CountyData> {
   const rows = await loadLongFormatCsv("va_ct_im3_2026_data_centers.csv.xz");
-
-  // county.json shape: { "51001": { "X1": 0.5, ... }, ... }
-  const out: Record<string, Record<string, number>> = {};
-
+  const out: CountyData = {};
   for (const row of rows) {
     if (row.region_type !== "county") continue;
-    const code = codeFor(row.measure, row.scenario, row.data_method);
+    const code = codeFor(row.measure, row.scenario, row.data_method, false);
     if (!out[row.geoid]) out[row.geoid] = {};
     out[row.geoid][code] = Number(row.value);
   }
   return out;
+}
+
+async function loadEVChargingStationsCounty(): Promise<CountyData> {
+  const rows = await loadLongFormatCsv(
+    "va_ct_sim_2030_run30_ev_charging_stations.csv.xz"
+  );
+  const out: CountyData = {};
+  for (const row of rows) {
+    if (row.region_type !== "county") continue;
+    const code = codeFor(row.measure, row.scenario, row.data_method, false);
+    if (!out[row.geoid]) out[row.geoid] = {};
+    out[row.geoid][code] = Number(row.value);
+  }
+  return out;
+}
+
+/**
+ * EVChargingDemand: 2 measures × 24 hours per county.
+ * Encode each (county, measure) as a 24-element array keyed by hour (0..23).
+ */
+async function loadEVChargingDemandCounty(): Promise<CountyData> {
+  const rows = await loadLongFormatCsv(
+    "va_ct_sim_2026_ev_charging_demand.csv.xz"
+  );
+  const out: CountyData = {};
+
+  for (const row of rows) {
+    if (row.region_type !== "county") continue;
+    const code = codeFor(row.measure, row.scenario, row.data_method, true);
+
+    // Parse "YYYY-MM-DDTHH:00:00" → hour integer
+    const hourMatch = row.datetime.match(/T(\d{2}):/);
+    if (!hourMatch) {
+      throw new Error(
+        `EV demand row has unexpected datetime '${row.datetime}' (expected ISO with hour)`
+      );
+    }
+    const hour = Number(hourMatch[1]);
+
+    if (!out[row.geoid]) out[row.geoid] = {};
+    if (!Array.isArray(out[row.geoid][code])) {
+      out[row.geoid][code] = new Array(24).fill(0) as number[];
+    }
+    (out[row.geoid][code] as number[])[hour] = Number(row.value);
+  }
+  return out;
+}
+
+// --- merge per-pipeline outputs ---
+
+function mergeCountyData(a: CountyData, b: CountyData): CountyData {
+  const merged: CountyData = { ...a };
+  for (const geoid of Object.keys(b)) {
+    if (!merged[geoid]) merged[geoid] = {};
+    Object.assign(merged[geoid], b[geoid]);
+  }
+  return merged;
 }
 
 // --- main ---
@@ -94,31 +157,46 @@ async function loadDataCentersCounty(): Promise<Record<string, Record<string, nu
 async function main() {
   console.log("Building data from", SOURCE_DIR);
 
-  const counties = await loadDataCentersCounty();
+  const dataCenters = await loadDataCentersCounty();
+  console.log(`  DataCenters: ${Object.keys(dataCenters).length} counties`);
 
-  writeFileSync(
-    path.join(OUT_DATA, "county.json"),
-    JSON.stringify(counties)
-  );
-  console.log(`  county.json: ${Object.keys(counties).length} counties`);
+  const evStations = await loadEVChargingStationsCounty();
+  console.log(`  EVChargingStations: ${Object.keys(evStations).length} counties`);
 
+  const evDemand = await loadEVChargingDemandCounty();
+  console.log(`  EVChargingDemand: ${Object.keys(evDemand).length} counties`);
+
+  const counties = mergeCountyData(mergeCountyData(dataCenters, evStations), evDemand);
+  console.log(`  Merged: ${Object.keys(counties).length} counties total`);
+
+  writeFileSync(path.join(OUT_DATA, "county.json"), JSON.stringify(counties));
   writeFileSync(
     path.join(OUT_DATA, "variables.json"),
     JSON.stringify(variableMeta, null, 2)
   );
   console.log(`  variables.json: ${Object.keys(variableMeta).length} variables`);
 
-  // scenarios.json: pass-through
-  const scenariosPath = path.join(SOURCE_DIR, "scenarios.json");
-  copyFileSync(scenariosPath, path.join(OUT_DATA, "scenarios.json"));
-  console.log("  scenarios.json copied");
+  // Pass-through scenarios.json
+  copyFileSync(
+    path.join(SOURCE_DIR, "scenarios.json"),
+    path.join(OUT_DATA, "scenarios.json")
+  );
 
-  // county boundary GeoJSON
+  // Boundary + point GeoJSONs
   copyFileSync(
     path.join(SOURCE_DIR, "va_geo_county_2020.geojson"),
     path.join(OUT_GEO, "county.geojson")
   );
-  console.log("  county.geojson copied");
+
+  copyFileSync(
+    path.join(SOURCE_DIR, "va_pt_sim_2030_va_2030_run30_ev_charging_stations.geojson"),
+    path.join(OUT_GEO, "ev_stations.geojson")
+  );
+
+  copyFileSync(
+    path.join(SOURCE_DIR, "va_pt_sim_2026_ev_charging_demand.geojson"),
+    path.join(OUT_GEO, "ev_demand_locations.geojson")
+  );
 
   console.log("Done.");
 }

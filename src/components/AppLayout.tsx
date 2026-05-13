@@ -5,6 +5,7 @@ import { DataProvider } from "./DataProvider";
 import { TabNav, type TabId } from "./TabNav";
 import { OverviewTab } from "./OverviewTab";
 import { TabPlaceholder } from "./TabPlaceholder";
+import { EVTab } from "./EVTab";
 
 export function AppLayout() {
   const [tab] = useQueryState("tab", {
@@ -25,12 +26,7 @@ export function AppLayout() {
       <TabNav />
       <main className="px-6 py-6">
         {tab === "overview" && <OverviewTab />}
-        {tab === "ev" && (
-          <TabPlaceholder
-            title="EV Infrastructure"
-            description="Charging stations + demand. Lands in Phase 2."
-          />
-        )}
+        {tab === "ev" && <EVTab />}
         {tab === "residential" && (
           <TabPlaceholder
             title="Residential Adoption"
