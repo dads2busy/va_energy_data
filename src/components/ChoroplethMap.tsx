@@ -14,6 +14,18 @@ interface FeatureCollection {
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
+/** Module-level color helper — shared by both useEffects to avoid duplication. */
+function colorFor(
+  val: number | undefined,
+  max: number
+): string {
+  if (!Number.isFinite(val ?? NaN)) return "#eeeeee";
+  const frac = Math.min(1, (val ?? 0) / max);
+  const lum = Math.round(255 - frac * 200);
+  const g = Math.round(255 - frac * 100);
+  return `rgb(${255}, ${g}, ${lum})`;
+}
+
 interface PointLayerSpec {
   /** URL or relative path to the GeoJSON file */
   geojsonUrl: string;
@@ -42,6 +54,8 @@ export function ChoroplethMap({
   pointLayers,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const choroplethLayerRef = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
   const selectedGeoid = useSelectionStore((s) => s.selectedGeoid);
   const setSelectedGeoid = useSelectionStore((s) => s.setSelectedGeoid);
@@ -85,25 +99,16 @@ export function ChoroplethMap({
           .filter((v) => Number.isFinite(v));
         const max = Math.max(1, ...values);
 
-        const colorFor = (val: number | undefined): string => {
-          if (!Number.isFinite(val ?? NaN)) return "#eeeeee";
-          const frac = Math.min(1, (val ?? 0) / max);
-          // simple white→amber ramp (replace with cmocean lajolla later)
-          const lum = Math.round(255 - frac * 200);
-          const g = Math.round(255 - frac * 100);
-          return `rgb(${255}, ${g}, ${lum})`;
-        };
-
-        L.geoJSON(geo as unknown as GeoJSON.GeoJsonObject, {
+        // simple white→amber ramp (replace with cmocean lajolla later)
+        const choroplethLayer = L.geoJSON(geo as unknown as GeoJSON.GeoJsonObject, {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           style: (feature: any) => {
             const v = countyData[feature.properties.geoid]?.[indicatorCode];
-            const isSelected = feature.properties.geoid === selectedGeoid;
             return {
-              fillColor: colorFor(v),
+              fillColor: colorFor(v, max),
               fillOpacity: 0.85,
-              color: isSelected ? "#dc2626" : "#555",
-              weight: isSelected ? 2.5 : 0.5,
+              color: "#555",
+              weight: 0.5,
             };
           },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -119,7 +124,9 @@ export function ChoroplethMap({
               click: () => setSelectedGeoid(feature.properties.geoid),
             });
           },
-        }).addTo(mapInstance);
+        });
+        choroplethLayer.addTo(mapInstance);
+        choroplethLayerRef.current = choroplethLayer;
 
         // Point overlays (Phase 2)
         if (pointLayers) {
@@ -192,8 +199,30 @@ export function ChoroplethMap({
     return () => {
       cancelled = true;
       if (mapInstance) mapInstance.remove();
+      choroplethLayerRef.current = null;
     };
-  }, [indicatorCode, countyData, measureLabel, selectedGeoid, setSelectedGeoid, pointLayers]);
+  }, [indicatorCode, countyData, measureLabel, setSelectedGeoid, pointLayers]);
+
+  // Narrow effect: re-style selection border without rebuilding the map.
+  useEffect(() => {
+    const layer = choroplethLayerRef.current;
+    if (!layer) return;
+    const values = Object.values(countyData)
+      .map((m: Record<string, number>) => m[indicatorCode])
+      .filter((v) => Number.isFinite(v));
+    const max = Math.max(1, ...values);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    layer.setStyle((feature: any) => {
+      const v = countyData[feature.properties.geoid]?.[indicatorCode];
+      const isSelected = feature.properties.geoid === selectedGeoid;
+      return {
+        fillColor: colorFor(v, max),
+        fillOpacity: 0.85,
+        color: isSelected ? "#dc2626" : "#555",
+        weight: isSelected ? 2.5 : 0.5,
+      };
+    });
+  }, [selectedGeoid, countyData, indicatorCode]);
 
   if (error) return <div className="text-red-600">Map error: {error}</div>;
   return (
