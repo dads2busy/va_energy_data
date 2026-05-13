@@ -27,6 +27,7 @@ export function ResidentialTab() {
     countyData,
     tractData,
     tractLoading,
+    tractError,
     variables,
   } = useData();
   const [selectedMeasure, setSelectedMeasure] = useState("pv_adoption_rate");
@@ -171,6 +172,15 @@ export function ResidentialTab() {
                 <div className="display mt-2 italic text-[--color-ink-light]">
                   Drawing 1,872 polygons…
                 </div>
+              </div>
+            </div>
+          ) : tractError && res === "tract" ? (
+            <div className="flex h-[560px] items-center justify-center border border-[--color-energy] bg-[--color-energy-soft]">
+              <div className="max-w-md text-center">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-energy-deep]">
+                  Couldn't load tract data
+                </div>
+                <div className="mt-2 text-sm text-[--color-ink]">{tractError}</div>
               </div>
             </div>
           ) : (
