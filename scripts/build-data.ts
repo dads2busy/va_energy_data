@@ -80,7 +80,7 @@ function codeFor(
 
 // --- per-pipeline loaders ---
 
-type CountyValues = Record<string, number | number[]>;
+type CountyValues = Record<string, number | (number | null)[]>;
 type CountyData = Record<string, CountyValues>;
 
 async function loadDataCentersCounty(): Promise<CountyData> {
@@ -141,6 +141,54 @@ async function loadEVChargingDemandCounty(): Promise<CountyData> {
   return out;
 }
 
+/**
+ * ResidentialEnergyScenario: 5 measures — 4 static scalars + 1 hourly array.
+ * pv_generation_kwh: 24-element array (one row per hour, datetime carries T##:).
+ * All other measures: scalar (datetime is "2030-01-01").
+ * Supports both county and tract region_type.
+ */
+async function loadResidentialByRegion(regionType: "county" | "tract"): Promise<CountyData> {
+  const rows = await loadLongFormatCsv(
+    "va_cttr_sim_2030_residential_energy_scenario.csv.xz"
+  );
+  const out: CountyData = {};
+
+  for (const row of rows) {
+    if (row.region_type !== regionType) continue;
+    const valueRaw = row.value;
+    if (valueRaw === "" || valueRaw === undefined) continue;
+
+    // `pv_generation_kwh` is hourly (datetime carries an hour)
+    // All other residential measures are static (datetime is "2030-01-01")
+    const isHourly = row.measure === "pv_generation_kwh";
+    const code = codeFor(row.measure, row.scenario, row.data_method, isHourly);
+
+    if (!out[row.geoid]) out[row.geoid] = {};
+
+    if (isHourly) {
+      const hourMatch = row.datetime.match(/T(\d{2}):/);
+      if (!hourMatch) {
+        // Static row in a column we expected to be hourly — skip
+        continue;
+      }
+      const hour = Number(hourMatch[1]);
+      if (!Array.isArray(out[row.geoid][code])) {
+        out[row.geoid][code] = new Array(24).fill(null) as (number | null)[];
+      }
+      const val = Number(valueRaw);
+      (out[row.geoid][code] as (number | null)[])[hour] = Number.isFinite(val)
+        ? val
+        : null;
+    } else {
+      const val = Number(valueRaw);
+      if (Number.isFinite(val)) {
+        out[row.geoid][code] = val;
+      }
+    }
+  }
+  return out;
+}
+
 // --- merge per-pipeline outputs ---
 
 function mergeCountyData(a: CountyData, b: CountyData): CountyData {
@@ -166,10 +214,27 @@ async function main() {
   const evDemand = await loadEVChargingDemandCounty();
   console.log(`  EVChargingDemand: ${Object.keys(evDemand).length} counties`);
 
-  const counties = mergeCountyData(mergeCountyData(dataCenters, evStations), evDemand);
-  console.log(`  Merged: ${Object.keys(counties).length} counties total`);
+  const residentialCounty = await loadResidentialByRegion("county");
+  console.log(
+    `  Residential (county): ${Object.keys(residentialCounty).length} counties`
+  );
+
+  const residentialTract = await loadResidentialByRegion("tract");
+  console.log(
+    `  Residential (tract): ${Object.keys(residentialTract).length} tracts`
+  );
+
+  const counties = mergeCountyData(
+    mergeCountyData(mergeCountyData(dataCenters, evStations), evDemand),
+    residentialCounty
+  );
+  console.log(`  Merged counties: ${Object.keys(counties).length}`);
 
   writeFileSync(path.join(OUT_DATA, "county.json"), JSON.stringify(counties));
+  writeFileSync(
+    path.join(OUT_DATA, "tract.json"),
+    JSON.stringify(residentialTract)
+  );
   writeFileSync(
     path.join(OUT_DATA, "variables.json"),
     JSON.stringify(variableMeta, null, 2)
@@ -186,6 +251,11 @@ async function main() {
   copyFileSync(
     path.join(SOURCE_DIR, "va_geo_county_2020.geojson"),
     path.join(OUT_GEO, "county.geojson")
+  );
+
+  copyFileSync(
+    path.join(SOURCE_DIR, "va_geo_tract_2020.geojson"),
+    path.join(OUT_GEO, "tract.geojson")
   );
 
   copyFileSync(
