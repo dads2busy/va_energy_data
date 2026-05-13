@@ -7,6 +7,7 @@ import { OverviewTab } from "./OverviewTab";
 import { TabPlaceholder } from "./TabPlaceholder";
 import { EVTab } from "./EVTab";
 import { ResidentialTab } from "./ResidentialTab";
+import { DataCentersTab } from "./DataCentersTab";
 
 export function AppLayout() {
   const [tab] = useQueryState("tab", {
@@ -22,25 +23,7 @@ export function AppLayout() {
           {tab === "overview" && <OverviewTab />}
           {tab === "ev" && <EVTab />}
           {tab === "residential" && <ResidentialTab />}
-          {tab === "data-centers" && (
-            <TabPlaceholder
-              chapter="IV"
-              title="Data Center Pressure"
-              subtitle="Existing IM3 Atlas data centers and the CERF-modeled 2035 projections, framed against power, water, and cost demand."
-              papers={[
-                {
-                  short: "IM3 Atlas",
-                  long: "Pacific Northwest National Laboratory — Open Source Data Center Atlas",
-                  href: "https://data.msdlive.org/records/p147s-4h760",
-                },
-                {
-                  short: "IM3 CERF",
-                  long: "PNNL — Projected US Data Center Locations (20 siting scenarios)",
-                  href: "https://data.msdlive.org/records/r0cga-34g05",
-                },
-              ]}
-            />
-          )}
+          {tab === "data-centers" && <DataCentersTab />}
           {tab === "retrofit" && (
             <TabPlaceholder
               chapter="V"
@@ -191,7 +174,7 @@ function SiteFooter() {
         <div className="font-mono">
           Built on Social-Data-Commons · va_energy_data
         </div>
-        <div className="font-mono">v0.1 · Phase 3 — Residential Adoption</div>
+        <div className="font-mono">v0.1 · Phase 4 — Data Center Pressure</div>
       </div>
     </footer>
   );
