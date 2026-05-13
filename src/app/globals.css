@@ -6,3 +6,230 @@
 /* Marker clustering CSS */
 @import "leaflet.markercluster/dist/MarkerCluster.css";
 @import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+
+/* ────────────────────────────────────────────────────────────────────
+   ATLAS DESIGN TOKENS
+   "Editorial cartography meets data journalism."
+   ──────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* Typography (wired via next/font in layout.tsx) */
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-public-sans), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Paper / canvas */
+  --color-paper: #f6f1e6;
+  --color-paper-deep: #ede4d0;
+  --color-paper-edge: #d4cab4;
+
+  /* Ink */
+  --color-ink: #161d2c;
+  --color-ink-muted: #4a5163;
+  --color-ink-light: #7a7d8a;
+  --color-ink-faint: #b3aea2;
+
+  /* Energy accent (warm — for demand, EV charging, data centers) */
+  --color-energy: #b9430b;
+  --color-energy-deep: #6e2306;
+  --color-energy-soft: #f4dbb7;
+
+  /* Generation accent (cool — for PV, renewable) */
+  --color-gen: #006a6b;
+  --color-gen-deep: #024142;
+  --color-gen-soft: #c3e0df;
+
+  /* Provenance method chips */
+  --color-pm-observed: #1f6f43;
+  --color-pm-simulated: #b9430b;
+  --color-pm-modeled: #1f3aa1;
+  --color-pm-scaled: #6b21a8;
+  --color-pm-interpolated: #525c6b;
+  --color-pm-extrapolated: #525c6b;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   BASE STYLES
+   ──────────────────────────────────────────────────────────────────── */
+
+html {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-feature-settings: "ss01", "cv11";  /* Public Sans stylistic tweaks */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--color-paper);
+  background-image:
+    /* very faint paper grain via stacked radial gradients */
+    radial-gradient(circle at 20% 30%, rgba(22, 29, 44, 0.012) 0, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(185, 67, 11, 0.015) 0, transparent 50%);
+  color: var(--color-ink);
+  min-height: 100vh;
+}
+
+/* Display headings get the serif treatment */
+.display {
+  font-family: var(--font-display);
+  font-feature-settings: "ss01";  /* Fraunces stylistic set 1 */
+  letter-spacing: -0.01em;
+}
+
+.display-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-feature-settings: "ss01";
+}
+
+/* Tabular figures for numbers */
+.tabular-nums {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Small caps utility */
+.smallcaps {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.12em;
+}
+
+/* Editorial rule (horizontal divider with "·" centerpiece) */
+.rule-with-mark {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--color-ink-faint);
+}
+.rule-with-mark::before,
+.rule-with-mark::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background-color: var(--color-paper-edge);
+}
+
+/* Leaflet overrides — tone down default styling to match paper aesthetic */
+.leaflet-container {
+  background: var(--color-paper-deep) !important;
+  font-family: var(--font-body);
+  font-size: 11px;
+}
+
+.leaflet-tile-pane {
+  filter: contrast(0.92) saturate(0.55) brightness(1.02);
+}
+
+.leaflet-control-attribution {
+  background: rgba(246, 241, 230, 0.75) !important;
+  color: var(--color-ink-muted) !important;
+  font-family: var(--font-mono);
+  font-size: 9px !important;
+  padding: 2px 6px !important;
+}
+
+.leaflet-control-attribution a {
+  color: var(--color-ink-muted) !important;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid var(--color-paper-edge) !important;
+  box-shadow: none !important;
+}
+.leaflet-control-zoom a {
+  background: var(--color-paper) !important;
+  color: var(--color-ink) !important;
+  border-color: var(--color-paper-edge) !important;
+}
+
+.leaflet-tooltip {
+  background: var(--color-paper) !important;
+  border: 1px solid var(--color-ink) !important;
+  color: var(--color-ink) !important;
+  font-family: var(--font-body) !important;
+  font-size: 11px !important;
+  padding: 4px 8px !important;
+  box-shadow: 2px 2px 0 rgba(22, 29, 44, 0.08) !important;
+  border-radius: 0 !important;
+}
+
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+  display: none !important;
+}
+
+.marker-cluster {
+  background-clip: padding-box;
+  border: 1.5px solid var(--color-energy-deep) !important;
+}
+.marker-cluster div {
+  background-color: var(--color-energy) !important;
+  color: var(--color-paper) !important;
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+/* Custom map ramp swatches — generated via JS in code, but the CSS class
+   provides hover/transition support. */
+.choropleth-feature {
+  transition: fill-opacity 150ms ease, stroke 150ms ease;
+}
+
+/* Selection highlight animation: amber ink draws on */
+@keyframes ink-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Page-load staggered fade-up */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up {
+  animation: fade-up 600ms ease-out backwards;
+}
+
+/* Editorial pull-quote bracket (left side of stat blocks) */
+.pull-bracket {
+  border-left: 2px solid var(--color-ink);
+  padding-left: 1.25rem;
+}
+
+/* Marginalia (small annotation text in the side column) */
+.marginalia {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+  letter-spacing: 0.01em;
+}
+
+.marginalia em {
+  font-family: var(--font-display);
+  font-style: italic;
+  color: var(--color-ink);
+}
+
+/* Inline source citation (used in paper callouts) */
+.citation {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-ink-light);
+}

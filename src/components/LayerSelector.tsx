@@ -13,20 +13,32 @@ interface Props {
 
 export function LayerSelector({ options, selected, onChange }: Props) {
   return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((opt) => (
-        <button
-          key={opt.code}
-          onClick={() => onChange(opt.code)}
-          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-            selected === opt.code
-              ? "border-amber-600 bg-amber-50 text-amber-800"
-              : "border-gray-300 text-gray-600 hover:border-gray-500"
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
+    <div className="flex flex-wrap items-center gap-x-1 gap-y-1 border-y border-[--color-paper-edge] py-1">
+      <span className="mr-2 font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+        Layer
+      </span>
+      {options.map((opt) => {
+        const active = selected === opt.code;
+        return (
+          <button
+            key={opt.code}
+            onClick={() => onChange(opt.code)}
+            className={`relative border-l border-[--color-paper-edge] px-3 py-1 text-xs transition-colors first:border-l-0 ${
+              active
+                ? "font-medium text-[--color-energy-deep]"
+                : "text-[--color-ink-muted] hover:text-[--color-ink]"
+            }`}
+          >
+            {active && (
+              <span
+                aria-hidden="true"
+                className="absolute inset-x-2 -top-px h-[2px] bg-[--color-energy]"
+              />
+            )}
+            {opt.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

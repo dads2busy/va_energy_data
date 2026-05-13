@@ -9,11 +9,11 @@ import { HourOfDayStrip } from "./HourOfDayStrip";
 import { useSelectionStore } from "./selectionStore";
 
 const LAYER_OPTIONS: { label: string; measure: string }[] = [
-  { label: "Total stations", measure: "total_station_count" },
   { label: "Total chargers", measure: "total_charger_count" },
-  { label: "L1 stations", measure: "l1_station_count" },
-  { label: "L2 stations", measure: "l2_station_count" },
-  { label: "L3 stations", measure: "l3_station_count" },
+  { label: "Total stations", measure: "total_station_count" },
+  { label: "L3 fast", measure: "l3_station_count" },
+  { label: "L2 medium", measure: "l2_station_count" },
+  { label: "L1 slow", measure: "l1_station_count" },
 ];
 
 export function EVTab() {
@@ -21,39 +21,30 @@ export function EVTab() {
   const [selectedMeasure, setSelectedMeasure] = useState("total_charger_count");
   const selectedGeoid = useSelectionStore((s) => s.selectedGeoid);
 
-  // Stable identity — never changes, so empty dep array is correct.
   const pointLayers = useMemo(
     () => [
       {
         geojsonUrl: "/geo/ev_stations.geojson",
         cluster: false,
-        color: "#1d4ed8",
-        radius: 4,
+        color: "#1f3aa1",
+        radius: 3.5,
         layerLabel: "Existing station",
       },
       {
         geojsonUrl: "/geo/ev_demand_locations.geojson",
         cluster: true,
-        color: "#dc2626",
-        radius: 3,
+        color: "#b9430b",
+        radius: 2.5,
         layerLabel: "Charging location",
       },
     ],
     []
   );
 
-  if (loading)
-    return (
-      <div className="py-10 text-center text-gray-500">Loading data…</div>
-    );
+  if (loading) return <Loading />;
   if (error || !countyData || !variables)
-    return (
-      <div className="py-10 text-center text-red-600">
-        Error loading data: {error ?? "(unknown)"}
-      </div>
-    );
+    return <ErrorState message={error ?? "(unknown)"} />;
 
-  // Resolve indicator codes for the layer-selector options
   const layerOptions: LayerOption[] = LAYER_OPTIONS.map(({ label, measure }) => {
     const entry = Object.entries(variables).find(
       ([, m]) => m.measure === measure
@@ -67,10 +58,9 @@ export function EVTab() {
 
   if (!selectedCode) {
     return (
-      <div className="py-10 text-center text-red-600">
-        EV Infrastructure: indicator <code>{selectedMeasure}</code> missing
-        from <code>variables.json</code>. Re-run the build script.
-      </div>
+      <ErrorState
+        message={`EV Infrastructure: indicator ${selectedMeasure} missing from variables.json. Re-run the build script.`}
+      />
     );
   }
 
@@ -79,12 +69,10 @@ export function EVTab() {
     LAYER_OPTIONS.find((o) => o.measure === measureMeta.measure)?.label ??
     measureMeta.measure;
 
-  // Hourly demand: find the code for ev_charging_demand_kwh
   const demandCode = Object.entries(variables).find(
     ([, m]) => m.measure === "ev_charging_demand_kwh"
   )?.[0];
 
-  // Get hourly data for the selected county (or statewide aggregate fallback)
   const hourlyValues: number[] = (() => {
     if (!demandCode) return new Array(24).fill(0);
     if (selectedGeoid) {
@@ -92,7 +80,6 @@ export function EVTab() {
       if (Array.isArray(v)) return v;
       return new Array(24).fill(0);
     }
-    // Statewide: sum the arrays across all counties
     const sum = new Array(24).fill(0) as number[];
     for (const geoid of Object.keys(countyData)) {
       const v = countyData[geoid][demandCode];
@@ -103,7 +90,6 @@ export function EVTab() {
     return sum;
   })();
 
-  // Cast countyData to ChoroplethMap's expected scalar-only shape
   const choroplethData: Record<string, Record<string, number>> = {};
   for (const geoid of Object.keys(countyData)) {
     const entry = countyData[geoid][selectedCode];
@@ -112,7 +98,6 @@ export function EVTab() {
     }
   }
 
-  // Snapshot stats for the selected measure
   const values = Object.values(choroplethData)
     .map((m) => m[selectedCode])
     .filter((v): v is number => typeof v === "number");
@@ -123,71 +108,206 @@ export function EVTab() {
   )?.[0];
 
   return (
-    <div className="grid grid-cols-12 gap-6">
-      <div className="col-span-12 lg:col-span-9 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-medium">EV Infrastructure</h2>
-          <ProvenanceBadge
-            dataMethod={measureMeta.data_method}
-            scenario={measureMeta.scenario}
+    <article className="fade-up">
+      {/* Chapter heading */}
+      <header className="mb-8">
+        <div className="citation">
+          <span className="text-[--color-energy]">§II</span> · Chapter the Second
+        </div>
+        <h2 className="display mt-2 text-4xl font-medium tracking-tight text-[--color-ink]">
+          Where Virginians will{" "}
+          <span className="display-italic">plug in</span>
+        </h2>
+        <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-[--color-ink-muted]">
+          Simulated charging infrastructure and hourly demand across Virginia
+          under a 2026 scenario. The CHARGE-MAP framework places stations and
+          flags transformer upgrades; the digital twin generates the demand
+          curve below from synthetic households.
+        </p>
+      </header>
+
+      {/* Layout grid */}
+      <div className="grid grid-cols-12 gap-6">
+        <div className="col-span-12 lg:col-span-9 space-y-5">
+          {/* Layer selector + provenance */}
+          <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[--color-paper-edge] pb-4">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+                Choropleth · Plate 2.1
+              </div>
+              <h3 className="display mt-0.5 text-lg font-medium text-[--color-ink]">
+                {measureLabel}, by county
+              </h3>
+            </div>
+            <ProvenanceBadge
+              dataMethod={measureMeta.data_method}
+              scenario={measureMeta.scenario}
+            />
+          </div>
+          <LayerSelector
+            options={layerOptions}
+            selected={selectedCode}
+            onChange={(code) => {
+              const m = variables[code]?.measure;
+              if (m) setSelectedMeasure(m);
+            }}
+          />
+
+          <ChoroplethMap
+            indicatorCode={selectedCode}
+            countyData={choroplethData}
+            measureLabel={measureLabel}
+            pointLayers={pointLayers}
+          />
+
+          {/* Point overlay legend */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[--color-paper-edge] pb-3 text-xs">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+              Overlay
+            </span>
+            <LegendDot
+              color="#1f3aa1"
+              label="Existing public station"
+              count="~5,200"
+            />
+            <LegendDot
+              color="#b9430b"
+              label="Active charging location"
+              count="~65,000 · clustered"
+            />
+          </div>
+
+          {/* Hour-of-day */}
+          <HourOfDayStrip
+            values={hourlyValues}
+            unit="kWh"
+            label={
+              selectedGeoid
+                ? `Hourly EV charging demand — ${selectedGeoid}`
+                : `Hourly EV charging demand — statewide`
+            }
           />
         </div>
-        <LayerSelector
-          options={layerOptions}
-          selected={selectedCode}
-          onChange={(code) => {
-            const m = variables[code]?.measure;
-            if (m) setSelectedMeasure(m);
-          }}
-        />
-        <ChoroplethMap
-          indicatorCode={selectedCode}
-          countyData={choroplethData}
-          measureLabel={measureLabel}
-          pointLayers={pointLayers}
-        />
-        <HourOfDayStrip
-          values={hourlyValues}
-          label={
-            selectedGeoid
-              ? `Hourly EV charging demand — ${selectedGeoid}`
-              : "Hourly EV charging demand — statewide"
-          }
-        />
-      </div>
-      <aside className="col-span-12 space-y-4 lg:col-span-3">
-        <h3 className="text-sm font-medium uppercase tracking-wide text-gray-500">
-          {measureLabel} snapshot
-        </h3>
-        <div className="rounded border border-gray-200 p-3 text-sm">
-          <div>
-            Statewide total: <b>{total.toLocaleString()}</b>
-          </div>
-          <div>
-            Counties with data: <b>{values.length}</b>
-          </div>
-          <div>
-            Top county: <b>{topGeoid ?? "n/a"}</b> ({max.toLocaleString()})
-          </div>
-          {selectedGeoid && (
-            <div className="mt-2 border-t border-gray-100 pt-2">
-              Selected: <b>{selectedGeoid}</b>
-              <br />
-              Value:{" "}
-              <b>
-                {(
-                  choroplethData[selectedGeoid]?.[selectedCode] as
+
+        {/* Sidebar */}
+        <aside className="col-span-12 lg:col-span-3 space-y-5">
+          <div className="border border-[--color-paper-edge] bg-[--color-paper] px-5 py-4">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+              {measureLabel}
+            </div>
+            <div className="display tabular-nums mt-2 text-4xl font-medium leading-none text-[--color-energy]">
+              {total.toLocaleString()}
+            </div>
+            <div className="mt-1 font-mono text-[10px] uppercase tracking-widest text-[--color-ink-light]">
+              Statewide total
+            </div>
+
+            <div className="mt-4 space-y-2 border-t border-[--color-paper-edge] pt-3 text-xs">
+              <Stat
+                label="Counties with data"
+                value={values.length.toLocaleString()}
+              />
+              <Stat
+                label={`Top county (${topGeoid ?? "—"})`}
+                value={max.toLocaleString()}
+              />
+            </div>
+
+            {selectedGeoid && (
+              <div className="mt-4 border-t border-[--color-paper-edge] pt-3">
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-energy]">
+                  Selected · {selectedGeoid}
+                </div>
+                <div className="display tabular-nums mt-1 text-2xl font-medium text-[--color-ink]">
+                  {(choroplethData[selectedGeoid]?.[selectedCode] as
                     | number
                     | undefined
-                )?.toLocaleString() ?? "n/a"}
-              </b>
-            </div>
-          )}
+                  )?.toLocaleString() ?? "—"}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="marginalia">
+            <em>How to read.</em> Click any county to filter the hourly profile.
+            Click a peak hour on the temporal axis to mark it. Selection
+            persists when you switch chapters.
+          </div>
+
+          <div className="border-l-2 border-[--color-paper-edge] pl-4">
+            <div className="citation">Method</div>
+            <p className="mt-1 text-[11px] leading-snug text-[--color-ink-muted]">
+              Stations and charging locations are{" "}
+              <em className="display-italic">simulated</em> under the{" "}
+              <code className="font-mono text-[10px]">
+                va_2026_run2_eval30
+              </code>{" "}
+              scenario. Demand kWh per (county, hour-of-day) is summed across
+              all locations attributed to that county by point-in-polygon.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </article>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="text-[--color-ink-muted]">{label}</span>
+      <span className="tabular-nums font-medium text-[--color-ink]">
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function LegendDot({
+  color,
+  label,
+  count,
+}: {
+  color: string;
+  label: string;
+  count: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="block h-2.5 w-2.5 rounded-full border border-[--color-ink]"
+        style={{ backgroundColor: color }}
+      />
+      <span className="text-[--color-ink]">{label}</span>
+      <span className="font-mono text-[10px] text-[--color-ink-muted]">
+        {count}
+      </span>
+    </div>
+  );
+}
+
+function Loading() {
+  return (
+    <div className="flex min-h-[400px] items-center justify-center">
+      <div className="text-center">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+          Loading
         </div>
-        <p className="text-xs text-gray-500">
-          Click a county on the map to filter the hourly demand strip below.
-        </p>
-      </aside>
+        <div className="display mt-2 text-lg italic text-[--color-ink-light]">
+          Reading the atlas…
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ErrorState({ message }: { message: string }) {
+  return (
+    <div className="border border-[--color-energy] bg-[--color-energy-soft] px-6 py-5">
+      <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-energy-deep]">
+        Error
+      </div>
+      <div className="mt-1 text-sm text-[--color-ink]">{message}</div>
     </div>
   );
 }
