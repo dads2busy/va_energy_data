@@ -1,56 +1,95 @@
 "use client";
 
 import { useData } from "./DataProvider";
+import { ChoroplethMap } from "./ChoroplethMap";
 
 export function OverviewTab() {
   const { loading, error, countyData, variables } = useData();
 
-  if (error)
+  if (loading)
     return (
-      <div className="py-10 text-center text-red-600">Error: {error}</div>
+      <div className="py-10 text-center text-gray-500">Loading data…</div>
+    );
+  if (error || !countyData || !variables)
+    return (
+      <div className="py-10 text-center text-red-600">
+        Error loading data: {error ?? "(unknown)"}
+      </div>
     );
 
-  const counties = countyData ? Object.keys(countyData) : [];
-  const variableCount = variables ? Object.keys(variables).length : 0;
-  const totalDataCenterCode = variables
-    ? Object.entries(variables).find(
-        ([, m]) => m.measure === "total_data_center_count"
-      )?.[0] ?? null
-    : null;
+  // Find the indicator code for total_data_center_count
+  const indicatorCode = Object.entries(variables).find(
+    ([, m]) => m.measure === "total_data_center_count"
+  )?.[0];
+
+  if (!indicatorCode)
+    return (
+      <div className="py-10 text-center text-red-600">
+        Indicator <code>total_data_center_count</code> missing from{" "}
+        <code>variables.json</code>. Re-run the build script.
+      </div>
+    );
+
+  // Compute snapshot stats
+  const values = Object.values(countyData)
+    .map((m) => m[indicatorCode])
+    .filter((v) => Number.isFinite(v));
+  const total = values.reduce((a, b) => a + b, 0);
+  const max = Math.max(...values);
+  const topGeoid = Object.entries(countyData).find(
+    ([, m]) => m[indicatorCode] === max
+  )?.[0];
 
   return (
     <div className="grid grid-cols-12 gap-6">
       <div className="col-span-12 lg:col-span-9">
-        <h2 className="text-lg font-medium">Overview</h2>
+        <h2 className="text-lg font-medium">
+          Existing Data Centers in Virginia (IM3 Atlas, 2026)
+        </h2>
         <p className="mt-2 text-sm text-gray-600">
-          Choropleth map renders in Task 5 of Phase 1. Today this tab confirms
-          that data is loading and the indicator is available.
+          County-level count of OSM-derived data center records. A single
+          physical facility may appear as multiple records (point + building +
+          campus) — see the{" "}
+          <a
+            className="text-amber-700 underline"
+            href="https://data.msdlive.org/records/p147s-4h760"
+            target="_blank"
+            rel="noreferrer"
+          >
+            IM3 Atlas page
+          </a>
+          .
         </p>
-        <div className="mt-4 rounded border border-gray-200 p-4 text-sm">
-          <div>
-            Counties loaded:{" "}
-            <b>{loading ? "…" : counties.length}</b>
-          </div>
-          <div>
-            Indicators loaded:{" "}
-            <b>{loading ? "…" : variableCount}</b>
-          </div>
-          <div>
-            <code>total_data_center_count</code> indicator code:{" "}
-            <b>
-              {loading
-                ? "…"
-                : (totalDataCenterCode ?? "(not found — check build script)")}
-            </b>
-          </div>
+        <div className="mt-4">
+          <ChoroplethMap
+            indicatorCode={indicatorCode}
+            countyData={countyData}
+            measureLabel="Data center records"
+          />
         </div>
       </div>
-      <aside className="col-span-12 lg:col-span-3">
+      <aside className="col-span-12 space-y-4 lg:col-span-3">
         <h3 className="text-sm font-medium uppercase tracking-wide text-gray-500">
-          Per-county snapshot
+          Statewide snapshot
         </h3>
-        <p className="mt-2 text-sm text-gray-500">
-          Sidebar coming in Task 5.
+        <div className="rounded border border-gray-200 p-3 text-sm">
+          <div>
+            Total VA data center records: <b>{total}</b>
+          </div>
+          <div>
+            Counties with data centers: <b>{values.length}</b>
+          </div>
+          <div>
+            Top county: <b>{topGeoid ?? "n/a"}</b> ({max} records)
+          </div>
+        </div>
+        <h3 className="text-sm font-medium uppercase tracking-wide text-gray-500">
+          About this dashboard
+        </h3>
+        <p className="text-sm text-gray-600">
+          Interactive companion to the UVA Biocomplexity residential energy
+          digital twin research program. Currently in Phase 1: only the
+          Overview tab is fully wired.
         </p>
       </aside>
     </div>
