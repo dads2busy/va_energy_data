@@ -1,5 +1,6 @@
 import "./globals.css";
 import { ReactNode } from "react";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 export const metadata = {
   title: "Virginia Energy Data",
@@ -11,7 +12,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className="min-h-screen bg-white text-gray-900 antialiased">
-        {children}
+        <NuqsAdapter>{children}</NuqsAdapter>
       </body>
     </html>
   );
