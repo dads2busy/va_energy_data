@@ -3,11 +3,14 @@
 import { useQueryState } from "nuqs";
 import { CompassMark } from "./CompassRose";
 
+// `marker` is the small monospace badge above the label. Chapter pages use
+// "§I"…"§IV"; the data appendix uses "Appendix" — rendered verbatim.
 const TABS = [
-  { id: "overview", chapter: "I", label: "Data Centers" },
-  { id: "data-centers", chapter: "II", label: "Data Center Pressure" },
-  { id: "ev", chapter: "III", label: "EV Infrastructure" },
-  { id: "residential", chapter: "IV", label: "Residential Adoption" },
+  { id: "overview", marker: "§I", label: "Data Centers" },
+  { id: "data-centers", marker: "§II", label: "Data Center Pressure" },
+  { id: "ev", marker: "§III", label: "EV Infrastructure" },
+  { id: "residential", marker: "§IV", label: "Residential Adoption" },
+  { id: "data", marker: "Appendix", label: "Data" },
 ] as const;
 
 export type TabId = (typeof TABS)[number]["id"];
@@ -27,7 +30,7 @@ export function TabNav() {
               <button
                 onClick={() => setActiveTab(t.id)}
                 aria-current={active ? "page" : undefined}
-                aria-label={`§${t.chapter} — ${t.label}`}
+                aria-label={`${t.marker} — ${t.label}`}
                 className={`group relative flex items-center gap-2.5 px-4 pb-3 pt-3 text-left transition-colors cursor-pointer ${
                   active
                     ? "bg-[#ede4d0] text-[--color-ink]"
@@ -51,7 +54,7 @@ export function TabNav() {
                         : "text-[--color-gen-deep]"
                     }`}
                   >
-                    §{t.chapter}
+                    {t.marker}
                   </span>
                   <span className="display text-base font-medium leading-tight">
                     {t.label}

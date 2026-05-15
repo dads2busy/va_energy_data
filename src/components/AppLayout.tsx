@@ -7,6 +7,7 @@ import { OverviewTab } from "./OverviewTab";
 import { EVTab } from "./EVTab";
 import { ResidentialTab } from "./ResidentialTab";
 import { DataCentersTab } from "./DataCentersTab";
+import { DataTab } from "./DataTab";
 
 export function AppLayout() {
   const [tab] = useQueryState("tab", {
@@ -23,6 +24,7 @@ export function AppLayout() {
           {tab === "ev" && <EVTab />}
           {tab === "residential" && <ResidentialTab />}
           {tab === "data-centers" && <DataCentersTab />}
+          {tab === "data" && <DataTab />}
         </main>
         <SiteFooter />
       </div>
