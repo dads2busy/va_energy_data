@@ -110,7 +110,7 @@ export function DataCentersTab() {
             {
               geojsonUrl: "/geo/dc_existing.geojson",
               cluster: true,
-              color: "#475569",
+              color: "#1f3aa1",
               radius: 3,
               layerLabel: "Existing facility",
             },
@@ -246,7 +246,7 @@ export function DataCentersTab() {
               Overlay
             </span>
             <LegendDot
-              color="#475569"
+              color="#1f3aa1"
               label="Existing facility"
               count="~319 · IM3 Atlas 2026"
             />

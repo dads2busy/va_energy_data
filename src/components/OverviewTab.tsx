@@ -95,7 +95,7 @@ export function OverviewTab() {
             {
               geojsonUrl: "/geo/dc_existing.geojson",
               cluster: true,
-              color: "#475569",
+              color: "#1f3aa1",
               radius: 3,
               layerLabel: "Data center facility",
             },
@@ -254,7 +254,7 @@ export function OverviewTab() {
             <PointsToggle
               active={showPoints}
               onToggle={() => setShowPoints((p) => !p)}
-              swatchColor="#475569"
+              swatchColor="#1f3aa1"
             />
           </div>
           <div className="col-span-12 lg:col-span-3">
