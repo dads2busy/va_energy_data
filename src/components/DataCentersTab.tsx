@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryState } from "nuqs";
 import { useData } from "./DataProvider";
 import { ChoroplethMap } from "./ChoroplethMap";
@@ -12,6 +12,14 @@ import {
   type ImplicationMeasure,
 } from "./ImplicationStrip";
 import { useSelectionStore } from "./selectionStore";
+import {
+  DetailPanelShell,
+  DetailRow,
+  EmptyDetailPanel,
+} from "./DetailPanels";
+import { useDefaultTopCounty } from "./useDefaultTopCounty";
+
+type FacilityProps = Record<string, unknown>;
 
 const DEFAULT_SCENARIO = "im3_cerf_moderate_50";
 
@@ -65,7 +73,7 @@ const PROJECTED_MEASURES: {
 ];
 
 export function DataCentersTab() {
-  const { loading, error, countyData, variables } = useData();
+  const { loading, error, countyData, variables, countyNames } = useData();
   const [scenario, setScenario] = useQueryState("dc_scenario", {
     defaultValue: DEFAULT_SCENARIO,
   });
@@ -73,7 +81,17 @@ export function DataCentersTab() {
     "projected_data_center_count"
   );
   const [showPoints, setShowPoints] = useState(true);
+  const [selectedFacility, setSelectedFacility] = useState<FacilityProps | null>(
+    null
+  );
   const selectedGeoid = useSelectionStore((s) => s.selectedGeoid);
+
+  const handleFacilityClick = useCallback((p: FacilityProps) => {
+    setSelectedFacility(p);
+  }, []);
+  const handleCountyClick = useCallback(() => {
+    setSelectedFacility(null);
+  }, []);
 
   // Pre-compute the point layers — depend on scenario so they refresh when it changes
   const pointLayers = useMemo(
@@ -137,11 +155,26 @@ export function DataCentersTab() {
     }
   }, [scenario, implications, selectedMeasure]);
 
+  // Resolve indicator + choropleth slice before any conditional returns so
+  // the default-selection hook runs unconditionally.
+  const preSelectedCode = findCode(selectedMeasure, scenario);
+  const preChoropleth: Record<string, Record<string, number>> = {};
+  if (countyData && preSelectedCode) {
+    for (const geoid of Object.keys(countyData)) {
+      const entry = countyData[geoid][preSelectedCode];
+      if (typeof entry === "number") {
+        preChoropleth[geoid] = { [preSelectedCode]: entry };
+      }
+    }
+  }
+
+  useDefaultTopCounty(preSelectedCode, preChoropleth);
+
   if (loading) return <Loading />;
   if (error || !countyData || !variables)
     return <ErrorState message={error ?? "(unknown)"} />;
 
-  const selectedCode = findCode(selectedMeasure, scenario);
+  const selectedCode = preSelectedCode;
   if (!selectedCode) {
     return (
       <ErrorState
@@ -150,15 +183,7 @@ export function DataCentersTab() {
     );
   }
   const measureMeta = variables[selectedCode];
-
-  // Cast scalar-only for the choropleth
-  const choroplethData: Record<string, Record<string, number>> = {};
-  for (const geoid of Object.keys(countyData)) {
-    const entry = countyData[geoid][selectedCode];
-    if (typeof entry === "number") {
-      choroplethData[geoid] = { [selectedCode]: entry };
-    }
-  }
+  const choroplethData = preChoropleth;
 
   const activeImplication = implications.find(
     (m) => m.code === selectedCode
@@ -210,6 +235,8 @@ export function DataCentersTab() {
               countyData={choroplethData}
               measureLabel={measureLabel}
               pointLayers={pointLayers}
+              onPointClick={handleFacilityClick}
+              onCountyClick={handleCountyClick}
             />
             <PointsToggle
               active={showPoints}
@@ -236,21 +263,35 @@ export function DataCentersTab() {
         </div>
 
         <aside className="col-span-12 lg:col-span-3 space-y-5">
-          {selectedGeoid && (
-            <div className="border border-[--color-paper-edge] bg-[--color-paper] px-5 py-4">
-              <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-energy]">
-                Selected · {selectedGeoid}
-              </div>
-              <div className="display tabular-nums mt-2 text-3xl font-medium leading-none text-[--color-energy]">
-                {(choroplethData[selectedGeoid]?.[selectedCode] as
+          {selectedFacility ? (
+            <DCFacilityDetailPanel
+              facility={selectedFacility}
+              onClose={() => setSelectedFacility(null)}
+            />
+          ) : selectedGeoid ? (
+            <DCCountyDetailPanel
+              geoid={selectedGeoid}
+              countyName={countyNames?.[selectedGeoid] ?? selectedGeoid}
+              measureLabel={measureLabel}
+              measureValue={
+                (choroplethData[selectedGeoid]?.[selectedCode] as
                   | number
-                  | undefined
-                )?.toLocaleString() ?? "—"}
-              </div>
-              <div className="mt-1 font-mono text-[10px] uppercase tracking-widest text-[--color-ink-light]">
-                {measureLabel}
-              </div>
-            </div>
+                  | undefined) ?? null
+              }
+              scenario={scenario}
+              implications={implications}
+              countyData={countyData}
+            />
+          ) : (
+            <EmptyDetailPanel
+              label="County detail"
+              hint={
+                <>
+                  <em className="display-italic">Click any county</em> to see
+                  its projected data-center pressure under this scenario.
+                </>
+              }
+            />
           )}
 
           <div className="marginalia">
@@ -332,5 +373,177 @@ function ErrorState({ message }: { message: string }) {
       </div>
       <div className="mt-1 text-sm text-[--color-ink]">{message}</div>
     </div>
+  );
+}
+
+/** Panel shown for a clicked data-center point (existing or projected). */
+function DCFacilityDetailPanel({
+  facility,
+  onClose,
+}: {
+  facility: FacilityProps;
+  onClose: () => void;
+}) {
+  const name = String(
+    facility.facility_name ?? facility.facility_id ?? "(unnamed)"
+  );
+  const operator =
+    typeof facility.operator === "string" && facility.operator.trim()
+      ? facility.operator
+      : null;
+  const sqftNum =
+    typeof facility.sqft === "number"
+      ? facility.sqft
+      : typeof facility.sqft === "string"
+        ? Number(facility.sqft)
+        : NaN;
+  const sqft = Number.isFinite(sqftNum) ? Math.round(sqftNum) : null;
+  const itPowerNum =
+    typeof facility.it_power_mw === "number"
+      ? facility.it_power_mw
+      : typeof facility.it_power_mw === "string"
+        ? Number(facility.it_power_mw)
+        : NaN;
+  const itPower = Number.isFinite(itPowerNum) ? itPowerNum : null;
+  const geomType = typeof facility.type === "string" ? facility.type : null;
+  const countyId =
+    typeof facility.county_id === "number" || typeof facility.county_id === "string"
+      ? String(facility.county_id)
+      : null;
+  const year = typeof facility.year === "number" ? facility.year : null;
+  const facilityId =
+    typeof facility.facility_id === "string" ? facility.facility_id : null;
+  const sourceId =
+    typeof facility.source_id === "number" || typeof facility.source_id === "string"
+      ? String(facility.source_id)
+      : null;
+
+  return (
+    <DetailPanelShell
+      label="Selected facility"
+      title={name}
+      onClose={onClose}
+      closeAriaLabel="Close facility detail"
+    >
+      <dl className="space-y-3 px-4 py-3">
+        {operator && (
+          <DetailRow label="Operator" value={operator} emphasize />
+        )}
+        <DetailRow
+          label="IT power"
+          value={itPower !== null ? `${itPower.toLocaleString()} MW` : "—"}
+          mono
+          emphasize={itPower !== null}
+        />
+        <DetailRow
+          label="Surface area"
+          value={sqft !== null ? `${sqft.toLocaleString()} sq ft` : "—"}
+          mono
+          emphasize={sqft !== null}
+        />
+        {geomType && (
+          <DetailRow label="OSM geometry" value={geomType} chip={geomType} />
+        )}
+        <DetailRow label="County FIPS" value={countyId ?? "—"} mono />
+        <DetailRow
+          label="Source year"
+          value={year !== null ? String(year) : "—"}
+          mono
+        />
+      </dl>
+
+      {(facilityId || sourceId) && (
+        <div className="border-t border-[--color-paper-edge] px-4 py-3">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-[--color-ink-light]">
+            Provenance
+          </div>
+          {facilityId && (
+            <div className="mt-1 break-all font-mono text-[10px] text-[--color-ink-muted]">
+              facility_id · {facilityId}
+            </div>
+          )}
+          {sourceId && (
+            <div className="break-all font-mono text-[10px] text-[--color-ink-muted]">
+              source_id · {sourceId}
+            </div>
+          )}
+        </div>
+      )}
+    </DetailPanelShell>
+  );
+}
+
+/** County panel: shows every projected measure for the selected county
+ *  under the current scenario, plus the active measure highlighted. */
+function DCCountyDetailPanel({
+  geoid,
+  countyName,
+  measureLabel,
+  measureValue,
+  scenario,
+  implications,
+  countyData,
+}: {
+  geoid: string;
+  countyName: string;
+  measureLabel: string;
+  measureValue: number | null;
+  scenario: string;
+  implications: ImplicationMeasure[];
+  countyData: Record<string, Record<string, number | (number | null)[]>>;
+}) {
+  return (
+    <DetailPanelShell
+      label="Selected county"
+      title={countyName}
+      subtitle={`FIPS · ${geoid} · ${scenario}`}
+    >
+      <dl className="space-y-3 px-4 py-3">
+        <DetailRow
+          label={measureLabel}
+          value={
+            measureValue !== null
+              ? Math.round(measureValue).toLocaleString()
+              : "—"
+          }
+          mono
+          emphasize={measureValue !== null && measureValue > 0}
+        />
+      </dl>
+
+      <div className="border-t border-[--color-paper-edge] px-4 py-3">
+        <div className="font-mono text-[9px] uppercase tracking-widest text-[--color-ink-muted]">
+          All projected measures (this scenario)
+        </div>
+        <ul className="mt-2 space-y-1 text-[12px]">
+          {implications.map((m) => {
+            const v = countyData[geoid]?.[m.code];
+            const num = typeof v === "number" ? v : null;
+            const display =
+              num === null
+                ? "—"
+                : m.format
+                  ? m.format(num)
+                  : Math.round(num).toLocaleString();
+            return (
+              <li
+                key={m.code}
+                className="flex items-baseline justify-between gap-2"
+              >
+                <span className="truncate text-[--color-ink-muted]">
+                  {m.label}
+                </span>
+                <span className="font-mono tabular-nums text-[--color-ink]">
+                  {display}
+                  <span className="ml-1 text-[10px] text-[--color-ink-light]">
+                    {m.unit}
+                  </span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </DetailPanelShell>
   );
 }

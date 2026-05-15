@@ -30,6 +30,9 @@ interface DataState {
   tractLoading: boolean;
   tractError: string | null;
   loadTracts: () => void;
+  /** geoid → human-readable region name. Derived from county.geojson;
+   *  populated asynchronously so consumers should handle null. */
+  countyNames: Record<string, string> | null;
 }
 
 const DataContext = createContext<DataState | null>(null);
@@ -49,6 +52,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [tractLoading, setTractLoading] = useState(false);
   const [tractError, setTractError] = useState<string | null>(null);
   const [tractRequested, setTractRequested] = useState(false);
+
+  const [countyNames, setCountyNames] = useState<Record<string, string> | null>(
+    null
+  );
+
+  // Load county.geojson once to derive human-readable names. The map will
+  // also fetch this file later; both calls hit the same HTTP cache entry.
+  useEffect(() => {
+    fetch(`${BASE}/geo/county.geojson`)
+      .then((r) => r.json())
+      .then((geo) => {
+        const names: Record<string, string> = {};
+        for (const f of geo.features ?? []) {
+          const p = f.properties ?? {};
+          if (p.geoid)
+            names[String(p.geoid)] = p.region_name ?? String(p.geoid);
+        }
+        setCountyNames(names);
+      })
+      .catch(() => setCountyNames({}));
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -101,6 +125,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         tractLoading,
         tractError,
         loadTracts,
+        countyNames,
       }}
     >
       {children}

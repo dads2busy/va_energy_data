@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { useQueryState } from "nuqs";
 import { useData } from "./DataProvider";
 import { ChoroplethMap } from "./ChoroplethMap";
@@ -9,6 +9,12 @@ import { ProvenanceBadge } from "./ProvenanceBadge";
 import { HourOfDayStrip } from "./HourOfDayStrip";
 import { ResolutionToggle, type Resolution } from "./ResolutionToggle";
 import { useSelectionStore } from "./selectionStore";
+import {
+  DetailPanelShell,
+  DetailRow,
+  EmptyDetailPanel,
+} from "./DetailPanels";
+import { useDefaultTopCounty } from "./useDefaultTopCounty";
 
 const STATIC_OPTIONS: { label: string; measure: string; isRate: boolean }[] = [
   { label: "PV adoption", measure: "pv_adoption_rate", isRate: true },
@@ -29,31 +35,58 @@ export function ResidentialTab() {
     tractLoading,
     tractError,
     variables,
+    countyNames,
   } = useData();
   const [selectedMeasure, setSelectedMeasure] = useState("pv_adoption_rate");
   const [resRaw] = useQueryState("res", { defaultValue: "county" as Resolution });
   const res: Resolution = resRaw === "tract" ? "tract" : "county";
   const selectedGeoid = useSelectionStore((s) => s.selectedGeoid);
 
-  if (loading) return <Loading />;
-  if (error || !countyData || !variables)
-    return <ErrorState message={error ?? "(unknown)"} />;
-
-  const layerOptions: LayerOption[] = STATIC_OPTIONS.map(({ label, measure }) => {
-    const entry = Object.entries(variables).find(
-      ([, m]) => m.measure === measure
-    );
-    return entry ? { code: entry[0], label } : null;
-  }).filter((x): x is LayerOption => x !== null);
+  // Compute indicator code + scalar choropleth slice up front so the hook
+  // below runs unconditionally.
+  const layerOptions: LayerOption[] = variables
+    ? STATIC_OPTIONS.map(({ label, measure }) => {
+        const entry = Object.entries(variables).find(
+          ([, m]) => m.measure === measure
+        );
+        return entry ? { code: entry[0], label } : null;
+      }).filter((x): x is LayerOption => x !== null)
+    : [];
 
   const selectedOption = STATIC_OPTIONS.find(
     (o) => o.measure === selectedMeasure
   );
   const isRate = selectedOption?.isRate ?? false;
-  const selectedCode = layerOptions.find(
-    (o) => variables[o.code]?.measure === selectedMeasure
-  )?.code;
+  const selectedCode = variables
+    ? layerOptions.find(
+        (o) => variables[o.code]?.measure === selectedMeasure
+      )?.code
+    : undefined;
 
+  // Pre-conditional county slice used by the default-selection hook below.
+  const countyChoroplethEarly: Record<string, Record<string, number>> = {};
+  if (countyData && selectedCode) {
+    for (const geoid of Object.keys(countyData)) {
+      const entry = countyData[geoid][selectedCode];
+      if (typeof entry === "number") {
+        countyChoroplethEarly[geoid] = { [selectedCode]: entry };
+      }
+    }
+  }
+
+  useDefaultTopCounty(selectedCode, countyChoroplethEarly);
+
+  // No facility panel — the residential tab has no point overlays. We still
+  // memoize the county-click handler for clarity.
+  const handleCountyClick = useCallback(() => {
+    // No-op: county selection lives in the global store, which ChoroplethMap
+    // updates internally on click. This callback exists so the click is
+    // signalled clearly in the JSX.
+  }, []);
+
+  if (loading) return <Loading />;
+  if (error || !countyData || !variables)
+    return <ErrorState message={error ?? "(unknown)"} />;
   if (!selectedCode) {
     return (
       <ErrorState
@@ -191,6 +224,7 @@ export function ResidentialTab() {
               region={res}
               formatValue={formatValue}
               isPercent={isRate}
+              onCountyClick={handleCountyClick}
             />
           )}
 
@@ -206,6 +240,54 @@ export function ResidentialTab() {
         </div>
 
         <aside className="col-span-12 lg:col-span-3 space-y-5">
+          {selectedGeoid && res === "county" ? (
+            <ResidentialCountyDetailPanel
+              geoid={selectedGeoid}
+              countyName={countyNames?.[selectedGeoid] ?? selectedGeoid}
+              variables={variables}
+              countyData={countyData}
+              measureLabel={measureLabel}
+              measureValue={
+                typeof choroplethData[selectedGeoid]?.[selectedCode] === "number"
+                  ? (choroplethData[selectedGeoid][selectedCode] as number)
+                  : null
+              }
+              formatValue={formatValue}
+            />
+          ) : selectedGeoid && res === "tract" ? (
+            <DetailPanelShell
+              label="Selected tract"
+              title={selectedGeoid}
+              subtitle={`${measureLabel}`}
+            >
+              <dl className="space-y-3 px-4 py-3">
+                <DetailRow
+                  label={measureLabel}
+                  value={
+                    typeof choroplethData[selectedGeoid]?.[selectedCode] ===
+                    "number"
+                      ? formatValue(
+                          choroplethData[selectedGeoid][selectedCode]
+                        )
+                      : "—"
+                  }
+                  mono
+                  emphasize
+                />
+              </dl>
+            </DetailPanelShell>
+          ) : (
+            <EmptyDetailPanel
+              label="County detail"
+              hint={
+                <>
+                  <em className="display-italic">Click any county</em> to see
+                  its synthetic-household adoption profile.
+                </>
+              }
+            />
+          )}
+
           <div className="border border-[--color-paper-edge] bg-[--color-paper] px-5 py-4">
             <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
               {measureLabel}
@@ -233,19 +315,6 @@ export function ResidentialTab() {
                 value={`${formatValue(stats.min)} — ${formatValue(stats.max)}`}
               />
             </div>
-
-            {selectedGeoid && (
-              <div className="mt-4 border-t border-[--color-paper-edge] pt-3">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-energy]">
-                  Selected · {selectedGeoid}
-                </div>
-                <div className="display tabular-nums mt-1 text-2xl font-medium text-[--color-ink]">
-                  {typeof choroplethData[selectedGeoid]?.[selectedCode] === "number"
-                    ? formatValue(choroplethData[selectedGeoid][selectedCode])
-                    : "—"}
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="marginalia">
@@ -313,5 +382,129 @@ function ErrorState({ message }: { message: string }) {
       </div>
       <div className="mt-1 text-sm text-[--color-ink]">{message}</div>
     </div>
+  );
+}
+
+/** Residential adoption snapshot for the selected county. */
+function ResidentialCountyDetailPanel({
+  geoid,
+  countyName,
+  variables,
+  countyData,
+  measureLabel,
+  measureValue,
+  formatValue,
+}: {
+  geoid: string;
+  countyName: string;
+  variables: Record<string, { measure: string; scenario: string }>;
+  countyData: Record<string, Record<string, number | (number | null)[]>>;
+  measureLabel: string;
+  measureValue: number | null;
+  formatValue: (v: number) => string;
+}) {
+  const codeFor = (measure: string): string | undefined =>
+    Object.entries(variables).find(([, m]) => m.measure === measure)?.[0];
+  const get = (measure: string): number | null => {
+    const c = codeFor(measure);
+    if (!c) return null;
+    const v = countyData[geoid]?.[c];
+    return typeof v === "number" ? v : null;
+  };
+  const households = get("synthetic_household_count");
+  const pv = get("pv_adoption_rate");
+  const ev = get("ev_adoption_rate");
+  const bat = get("battery_adoption_rate");
+
+  // Peak PV generation hour for context, if available.
+  const pvHourlyCode = codeFor("pv_generation_kwh");
+  let peakKwh: number | null = null;
+  let peakHour: number | null = null;
+  if (pvHourlyCode) {
+    const arr = countyData[geoid]?.[pvHourlyCode];
+    if (Array.isArray(arr)) {
+      for (let h = 0; h < arr.length; h++) {
+        const v = arr[h];
+        if (typeof v === "number" && Number.isFinite(v)) {
+          if (peakKwh === null || v > peakKwh) {
+            peakKwh = v;
+            peakHour = h;
+          }
+        }
+      }
+    }
+  }
+
+  return (
+    <DetailPanelShell
+      label="Selected county"
+      title={countyName}
+      subtitle={`FIPS · ${geoid}`}
+    >
+      <dl className="space-y-3 px-4 py-3">
+        <DetailRow
+          label={measureLabel}
+          value={measureValue !== null ? formatValue(measureValue) : "—"}
+          mono
+          emphasize={measureValue !== null}
+        />
+        <DetailRow
+          label="Synthetic households"
+          value={households !== null ? households.toLocaleString() : "—"}
+          mono
+        />
+      </dl>
+
+      <div className="border-t border-[--color-paper-edge] px-4 py-3">
+        <div className="font-mono text-[9px] uppercase tracking-widest text-[--color-ink-muted]">
+          Adoption rates
+        </div>
+        <ul className="mt-2 space-y-1 text-[12px]">
+          <li className="flex items-baseline justify-between gap-2">
+            <span className="text-[--color-ink-muted]">PV</span>
+            <span className="font-mono tabular-nums text-[--color-ink]">
+              {pv !== null ? `${Math.round(pv * 100)}%` : "—"}
+            </span>
+          </li>
+          <li className="flex items-baseline justify-between gap-2">
+            <span className="text-[--color-ink-muted]">EV</span>
+            <span className="font-mono tabular-nums text-[--color-ink]">
+              {ev !== null ? `${Math.round(ev * 100)}%` : "—"}
+            </span>
+          </li>
+          <li className="flex items-baseline justify-between gap-2">
+            <span className="text-[--color-ink-muted]">Battery</span>
+            <span className="font-mono tabular-nums text-[--color-ink]">
+              {bat !== null ? `${Math.round(bat * 100)}%` : "—"}
+            </span>
+          </li>
+        </ul>
+      </div>
+
+      {peakKwh !== null && (
+        <div className="border-t border-[--color-paper-edge] px-4 py-3">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-[--color-ink-muted]">
+            Peak PV generation
+          </div>
+          <div className="mt-1 flex items-baseline gap-3 text-[12px]">
+            <span className="font-mono tabular-nums text-[--color-ink]">
+              {Math.round(peakKwh).toLocaleString()} kWh
+            </span>
+            <span className="text-[--color-ink-muted]">
+              at hour {String(peakHour).padStart(2, "0")}:00
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Tract-view caveat is rendered alongside the panel; this acknowledges
+          we only show this rich panel at county resolution. */}
+      <div className="border-t border-[--color-paper-edge] px-4 py-3 text-[11px] text-[--color-ink-light]">
+        Switch to <em className="display-italic">tract</em> resolution above to
+        drill below the county. Adoption rates remain estimates from a
+        synthetic population — see the caveat below.
+      </div>
+
+    </DetailPanelShell>
   );
 }

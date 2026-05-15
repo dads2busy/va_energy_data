@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useData } from "./DataProvider";
 import { ChoroplethMap } from "./ChoroplethMap";
 import { LayerSelector, type LayerOption } from "./LayerSelector";
@@ -8,6 +8,14 @@ import { ProvenanceBadge } from "./ProvenanceBadge";
 import { HourOfDayStrip } from "./HourOfDayStrip";
 import { PointsToggle } from "./PointsToggle";
 import { useSelectionStore } from "./selectionStore";
+import {
+  DetailPanelShell,
+  DetailRow,
+  EmptyDetailPanel,
+} from "./DetailPanels";
+import { useDefaultTopCounty } from "./useDefaultTopCounty";
+
+type FacilityProps = Record<string, unknown>;
 
 const LAYER_OPTIONS: { label: string; measure: string }[] = [
   { label: "Total chargers", measure: "total_charger_count" },
@@ -18,10 +26,20 @@ const LAYER_OPTIONS: { label: string; measure: string }[] = [
 ];
 
 export function EVTab() {
-  const { loading, error, countyData, variables } = useData();
+  const { loading, error, countyData, variables, countyNames } = useData();
   const [selectedMeasure, setSelectedMeasure] = useState("total_charger_count");
   const [showPoints, setShowPoints] = useState(true);
+  const [selectedFacility, setSelectedFacility] = useState<FacilityProps | null>(
+    null
+  );
   const selectedGeoid = useSelectionStore((s) => s.selectedGeoid);
+
+  const handleFacilityClick = useCallback((p: FacilityProps) => {
+    setSelectedFacility(p);
+  }, []);
+  const handleCountyClick = useCallback(() => {
+    setSelectedFacility(null);
+  }, []);
 
   // Match the layer-selector measure to the station-type filter applied to
   // the points overlay. Level-specific measures show only that level; the
@@ -56,20 +74,38 @@ export function EVTab() {
     [showPoints, stationType, overlayLabel]
   );
 
+  // Resolve indicator metadata and the scalar choropleth slice before any
+  // conditional returns, so the hook below runs unconditionally.
+  const layerOptions: LayerOption[] = variables
+    ? LAYER_OPTIONS.map(({ label, measure }) => {
+        const entry = Object.entries(variables).find(
+          ([, m]) => m.measure === measure
+        );
+        return entry ? { code: entry[0], label } : null;
+      }).filter((x): x is LayerOption => x !== null)
+    : [];
+
+  const selectedCode = variables
+    ? layerOptions.find(
+        (o) => variables[o.code]?.measure === selectedMeasure
+      )?.code
+    : undefined;
+
+  const choroplethDataEarly: Record<string, Record<string, number>> = {};
+  if (countyData && selectedCode) {
+    for (const geoid of Object.keys(countyData)) {
+      const entry = countyData[geoid][selectedCode];
+      if (typeof entry === "number") {
+        choroplethDataEarly[geoid] = { [selectedCode]: entry };
+      }
+    }
+  }
+
+  useDefaultTopCounty(selectedCode, choroplethDataEarly);
+
   if (loading) return <Loading />;
   if (error || !countyData || !variables)
     return <ErrorState message={error ?? "(unknown)"} />;
-
-  const layerOptions: LayerOption[] = LAYER_OPTIONS.map(({ label, measure }) => {
-    const entry = Object.entries(variables).find(
-      ([, m]) => m.measure === measure
-    );
-    return entry ? { code: entry[0], label } : null;
-  }).filter((x): x is LayerOption => x !== null);
-
-  const selectedCode = layerOptions.find(
-    (o) => variables[o.code]?.measure === selectedMeasure
-  )?.code;
 
   if (!selectedCode) {
     return (
@@ -105,13 +141,7 @@ export function EVTab() {
     return sum;
   })();
 
-  const choroplethData: Record<string, Record<string, number>> = {};
-  for (const geoid of Object.keys(countyData)) {
-    const entry = countyData[geoid][selectedCode];
-    if (typeof entry === "number") {
-      choroplethData[geoid] = { [selectedCode]: entry };
-    }
-  }
+  const choroplethData = choroplethDataEarly;
 
   const values = Object.values(choroplethData)
     .map((m) => m[selectedCode])
@@ -174,6 +204,8 @@ export function EVTab() {
               countyData={choroplethData}
               measureLabel={measureLabel}
               pointLayers={pointLayers}
+              onPointClick={handleFacilityClick}
+              onCountyClick={handleCountyClick}
             />
             <PointsToggle
               active={showPoints}
@@ -220,6 +252,37 @@ export function EVTab() {
 
         {/* Sidebar */}
         <aside className="col-span-12 lg:col-span-3 space-y-5">
+          {selectedFacility ? (
+            <EVFacilityDetailPanel
+              facility={selectedFacility}
+              onClose={() => setSelectedFacility(null)}
+            />
+          ) : selectedGeoid ? (
+            <EVCountyDetailPanel
+              geoid={selectedGeoid}
+              countyName={countyNames?.[selectedGeoid] ?? selectedGeoid}
+              variables={variables}
+              countyData={countyData}
+              measureLabel={measureLabel}
+              measureValue={
+                (choroplethData[selectedGeoid]?.[selectedCode] as
+                  | number
+                  | undefined) ?? null
+              }
+              demandCode={demandCode}
+            />
+          ) : (
+            <EmptyDetailPanel
+              label="County detail"
+              hint={
+                <>
+                  <em className="display-italic">Click any county</em> to see
+                  its EV infrastructure profile.
+                </>
+              }
+            />
+          )}
+
           <div className="border border-[--color-paper-edge] bg-[--color-paper] px-5 py-4">
             <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
               {measureLabel}
@@ -241,20 +304,6 @@ export function EVTab() {
                 value={max.toLocaleString()}
               />
             </div>
-
-            {selectedGeoid && (
-              <div className="mt-4 border-t border-[--color-paper-edge] pt-3">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-energy]">
-                  Selected · {selectedGeoid}
-                </div>
-                <div className="display tabular-nums mt-1 text-2xl font-medium text-[--color-ink]">
-                  {(choroplethData[selectedGeoid]?.[selectedCode] as
-                    | number
-                    | undefined
-                  )?.toLocaleString() ?? "—"}
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="marginalia">
@@ -338,5 +387,195 @@ function ErrorState({ message }: { message: string }) {
       </div>
       <div className="mt-1 text-sm text-[--color-ink]">{message}</div>
     </div>
+  );
+}
+
+/** Panel shown for a clicked EV station point. */
+function EVFacilityDetailPanel({
+  facility,
+  onClose,
+}: {
+  facility: FacilityProps;
+  onClose: () => void;
+}) {
+  const name = String(
+    facility.facility_name ?? facility.facility_id ?? "(unnamed)"
+  );
+  const stationType =
+    typeof facility.type === "string" ? facility.type.toUpperCase() : null;
+  const chargers =
+    typeof facility.count === "number" ? facility.count : null;
+  const year = typeof facility.year === "number" ? facility.year : null;
+  const geoid =
+    typeof facility.geoid === "number" || typeof facility.geoid === "string"
+      ? String(facility.geoid)
+      : null;
+  const facilityId =
+    typeof facility.facility_id === "string" ? facility.facility_id : null;
+  const stationId =
+    typeof facility.station_id === "string" ? facility.station_id : null;
+
+  return (
+    <DetailPanelShell
+      label="Selected station"
+      title={name}
+      onClose={onClose}
+      closeAriaLabel="Close station detail"
+    >
+      <dl className="space-y-3 px-4 py-3">
+        <DetailRow
+          label="Charger level"
+          value={stationType ?? "—"}
+          chip={stationType ?? undefined}
+        />
+        <DetailRow
+          label="Chargers at this station"
+          value={chargers !== null ? chargers.toLocaleString() : "—"}
+          mono
+          emphasize={chargers !== null}
+        />
+        <DetailRow label="County FIPS" value={geoid ?? "—"} mono />
+        <DetailRow
+          label="Source year"
+          value={year !== null ? String(year) : "—"}
+          mono
+        />
+      </dl>
+
+      {(facilityId || stationId) && (
+        <div className="border-t border-[--color-paper-edge] px-4 py-3">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-[--color-ink-light]">
+            Provenance
+          </div>
+          {facilityId && (
+            <div className="mt-1 break-all font-mono text-[10px] text-[--color-ink-muted]">
+              facility_id · {facilityId}
+            </div>
+          )}
+          {stationId && (
+            <div className="break-all font-mono text-[10px] text-[--color-ink-muted]">
+              station_id · {stationId}
+            </div>
+          )}
+        </div>
+      )}
+    </DetailPanelShell>
+  );
+}
+
+/** EV infrastructure profile for the selected county. */
+function EVCountyDetailPanel({
+  geoid,
+  countyName,
+  variables,
+  countyData,
+  measureLabel,
+  measureValue,
+  demandCode,
+}: {
+  geoid: string;
+  countyName: string;
+  variables: Record<string, { measure: string; scenario: string }>;
+  countyData: Record<string, Record<string, number | (number | null)[]>>;
+  measureLabel: string;
+  measureValue: number | null;
+  demandCode: string | undefined;
+}) {
+  // Resolve all EV station/charger measures so the panel can show a
+  // breakdown alongside the currently-active layer.
+  const codeFor = (measure: string): string | undefined =>
+    Object.entries(variables).find(([, m]) => m.measure === measure)?.[0];
+  const get = (measure: string): number | null => {
+    const c = codeFor(measure);
+    if (!c) return null;
+    const v = countyData[geoid]?.[c];
+    return typeof v === "number" ? v : null;
+  };
+  const totalChargers = get("total_charger_count");
+  const totalStations = get("total_station_count");
+  const l1 = get("l1_station_count");
+  const l2 = get("l2_station_count");
+  const l3 = get("l3_station_count");
+
+  // Peak hourly demand for the county.
+  let peakKwh: number | null = null;
+  let peakHour: number | null = null;
+  if (demandCode) {
+    const arr = countyData[geoid]?.[demandCode];
+    if (Array.isArray(arr)) {
+      for (let h = 0; h < arr.length; h++) {
+        const v = arr[h];
+        if (typeof v === "number" && Number.isFinite(v)) {
+          if (peakKwh === null || v > peakKwh) {
+            peakKwh = v;
+            peakHour = h;
+          }
+        }
+      }
+    }
+  }
+
+  const fmt = (v: number | null) =>
+    v === null ? "—" : v.toLocaleString(undefined, { maximumFractionDigits: 0 });
+
+  return (
+    <DetailPanelShell
+      label="Selected county"
+      title={countyName}
+      subtitle={`FIPS · ${geoid}`}
+    >
+      <dl className="space-y-3 px-4 py-3">
+        <DetailRow
+          label={measureLabel}
+          value={fmt(measureValue)}
+          mono
+          emphasize={measureValue !== null && measureValue > 0}
+        />
+        <DetailRow label="Total chargers" value={fmt(totalChargers)} mono />
+        <DetailRow label="Total stations" value={fmt(totalStations)} mono />
+      </dl>
+
+      <div className="border-t border-[--color-paper-edge] px-4 py-3">
+        <div className="font-mono text-[9px] uppercase tracking-widest text-[--color-ink-muted]">
+          Stations by level
+        </div>
+        <ul className="mt-2 space-y-1 text-[12px]">
+          <li className="flex items-baseline justify-between gap-2">
+            <span className="text-[--color-ink-muted]">L1 slow</span>
+            <span className="font-mono tabular-nums text-[--color-ink]">
+              {fmt(l1)}
+            </span>
+          </li>
+          <li className="flex items-baseline justify-between gap-2">
+            <span className="text-[--color-ink-muted]">L2 medium</span>
+            <span className="font-mono tabular-nums text-[--color-ink]">
+              {fmt(l2)}
+            </span>
+          </li>
+          <li className="flex items-baseline justify-between gap-2">
+            <span className="text-[--color-ink-muted]">L3 fast</span>
+            <span className="font-mono tabular-nums text-[--color-ink]">
+              {fmt(l3)}
+            </span>
+          </li>
+        </ul>
+      </div>
+
+      {peakKwh !== null && (
+        <div className="border-t border-[--color-paper-edge] px-4 py-3">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-[--color-ink-muted]">
+            Peak charging demand
+          </div>
+          <div className="mt-1 flex items-baseline gap-3 text-[12px]">
+            <span className="font-mono tabular-nums text-[--color-ink]">
+              {fmt(peakKwh)} kWh
+            </span>
+            <span className="text-[--color-ink-muted]">
+              at hour {String(peakHour).padStart(2, "0")}:00
+            </span>
+          </div>
+        </div>
+      )}
+    </DetailPanelShell>
   );
 }
