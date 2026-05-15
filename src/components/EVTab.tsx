@@ -157,7 +157,7 @@ export function EVTab() {
       {/* Chapter heading */}
       <header className="mb-8">
         <div className="citation">
-          <span className="text-[--color-energy]">§II</span> · Chapter the Second
+          <span className="text-[--color-energy]">§III</span> · Chapter the Third
         </div>
         <h2 className="display mt-2 text-4xl font-medium tracking-tight text-[--color-ink]">
           Where Virginians will{" "}

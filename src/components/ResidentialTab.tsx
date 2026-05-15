@@ -153,7 +153,7 @@ export function ResidentialTab() {
     <article className="fade-up">
       <header className="mb-8">
         <div className="citation">
-          <span className="text-[--color-energy]">§III</span> · Chapter the Third
+          <span className="text-[--color-energy]">§IV</span> · Chapter the Fourth
         </div>
         <h2 className="display mt-2 text-4xl font-medium tracking-tight text-[--color-ink]">
           Where the energy transition{" "}

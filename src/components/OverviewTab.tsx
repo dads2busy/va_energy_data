@@ -302,7 +302,7 @@ export function OverviewTab() {
           <ReadingNote
             number="02"
             title="Pick a chapter to drill down"
-            body="Chapter II turns the map onto EV charging infrastructure. Chapter III extends to adoption, Chapter IV to projected siting."
+            body="Chapter II projects where data centers go next. Chapter III turns the map onto EV charging infrastructure. Chapter IV extends to residential adoption."
           />
           <ReadingNote
             number="03"

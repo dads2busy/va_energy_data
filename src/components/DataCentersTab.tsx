@@ -190,7 +190,7 @@ export function DataCentersTab() {
     <article className="fade-up">
       <header className="mb-8">
         <div className="citation">
-          <span className="text-[--color-energy]">§IV</span> · Chapter the Fourth
+          <span className="text-[--color-energy]">§II</span> · Chapter the Second
         </div>
         <h2 className="display mt-2 text-4xl font-medium tracking-tight text-[--color-ink]">
           Where the data centers{" "}

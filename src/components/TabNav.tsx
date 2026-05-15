@@ -4,10 +4,10 @@ import { useQueryState } from "nuqs";
 import { CompassMark } from "./CompassRose";
 
 const TABS = [
-  { id: "overview", chapter: "I", label: "Overview" },
-  { id: "ev", chapter: "II", label: "EV Infrastructure" },
-  { id: "residential", chapter: "III", label: "Residential Adoption" },
-  { id: "data-centers", chapter: "IV", label: "Data Center Pressure" },
+  { id: "overview", chapter: "I", label: "Data Centers" },
+  { id: "data-centers", chapter: "II", label: "Data Center Pressure" },
+  { id: "ev", chapter: "III", label: "EV Infrastructure" },
+  { id: "residential", chapter: "IV", label: "Residential Adoption" },
 ] as const;
 
 export type TabId = (typeof TABS)[number]["id"];
