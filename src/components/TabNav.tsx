@@ -1,6 +1,7 @@
 "use client";
 
 import { useQueryState } from "nuqs";
+import { CompassMark } from "./CompassRose";
 
 const TABS = [
   { id: "overview", chapter: "I", label: "Overview" },
@@ -25,21 +26,36 @@ export function TabNav() {
             <li key={t.id}>
               <button
                 onClick={() => setActiveTab(t.id)}
-                className={`group relative flex flex-col items-start gap-0.5 px-4 pb-3 pt-3 text-left transition-colors ${
+                aria-current={active ? "page" : undefined}
+                aria-label={`§${t.chapter} — ${t.label}`}
+                className={`group relative flex items-center gap-2.5 px-4 pb-3 pt-3 text-left transition-colors cursor-pointer ${
                   active
-                    ? "text-[--color-ink]"
-                    : "text-[--color-ink-muted] hover:text-[--color-ink]"
+                    ? "bg-[#ede4d0] text-[--color-ink]"
+                    : "text-[--color-ink-muted] hover:bg-[#ede4d0] hover:text-[--color-ink]"
                 }`}
               >
+                {/* Selection marker: fixed-width slot so layout doesn't shift
+                    when activating a tab. Compass is only visible on the
+                    active tab. */}
                 <span
-                  className={`font-mono text-[10px] uppercase tracking-widest ${
-                    active ? "text-[--color-energy]" : "text-[--color-gen-deep]"
-                  }`}
+                  aria-hidden="true"
+                  className="flex h-[14px] w-[14px] shrink-0 items-center justify-center"
                 >
-                  §{t.chapter}
+                  {active && <CompassMark size={14} />}
                 </span>
-                <span className="display text-base font-medium leading-tight">
-                  {t.label}
+                <span className="flex flex-col items-start gap-0.5">
+                  <span
+                    className={`font-mono text-[10px] uppercase tracking-widest ${
+                      active
+                        ? "text-[--color-energy]"
+                        : "text-[--color-gen-deep]"
+                    }`}
+                  >
+                    §{t.chapter}
+                  </span>
+                  <span className="display text-base font-medium leading-tight">
+                    {t.label}
+                  </span>
                 </span>
                 {active && (
                   <span

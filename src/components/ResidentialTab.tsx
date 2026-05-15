@@ -17,7 +17,7 @@ const STATIC_OPTIONS: { label: string; measure: string; isRate: boolean }[] = [
   { label: "Households", measure: "synthetic_household_count", isRate: false },
 ];
 
-const formatPct = (v: number) => `${(v * 100).toFixed(1)}%`;
+const formatPct = (v: number) => `${Math.round(v * 100)}%`;
 const formatCount = (v: number) => Math.round(v).toLocaleString();
 
 export function ResidentialTab() {
@@ -190,6 +190,7 @@ export function ResidentialTab() {
               measureLabel={measureLabel}
               region={res}
               formatValue={formatValue}
+              isPercent={isRate}
             />
           )}
 

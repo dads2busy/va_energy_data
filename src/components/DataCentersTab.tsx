@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQueryState } from "nuqs";
 import { useData } from "./DataProvider";
 import { ChoroplethMap } from "./ChoroplethMap";
+import { PointsToggle } from "./PointsToggle";
 import { ProvenanceBadge } from "./ProvenanceBadge";
 import { ScenarioSelector } from "./ScenarioSelector";
 import {
@@ -71,27 +72,31 @@ export function DataCentersTab() {
   const [selectedMeasure, setSelectedMeasure] = useState(
     "projected_data_center_count"
   );
+  const [showPoints, setShowPoints] = useState(true);
   const selectedGeoid = useSelectionStore((s) => s.selectedGeoid);
 
   // Pre-compute the point layers — depend on scenario so they refresh when it changes
   const pointLayers = useMemo(
-    () => [
-      {
-        geojsonUrl: "/geo/dc_existing.geojson",
-        cluster: false,
-        color: "#475569",
-        radius: 3,
-        layerLabel: "Existing facility",
-      },
-      {
-        geojsonUrl: `/geo/dc_projected/${scenario}.geojson`,
-        cluster: true,
-        color: "#b9430b",
-        radius: 3,
-        layerLabel: "Projected facility",
-      },
-    ],
-    [scenario]
+    () =>
+      showPoints
+        ? [
+            {
+              geojsonUrl: "/geo/dc_existing.geojson",
+              cluster: true,
+              color: "#475569",
+              radius: 3,
+              layerLabel: "Existing facility",
+            },
+            {
+              geojsonUrl: `/geo/dc_projected/${scenario}.geojson`,
+              cluster: true,
+              color: "#b9430b",
+              radius: 3,
+              layerLabel: "Projected facility",
+            },
+          ]
+        : undefined,
+    [showPoints, scenario]
   );
 
   // Resolve the variable code for the selected (measure, scenario)
@@ -199,12 +204,19 @@ export function DataCentersTab() {
             />
           </div>
 
-          <ChoroplethMap
-            indicatorCode={selectedCode}
-            countyData={choroplethData}
-            measureLabel={measureLabel}
-            pointLayers={pointLayers}
-          />
+          <div className="relative">
+            <ChoroplethMap
+              indicatorCode={selectedCode}
+              countyData={choroplethData}
+              measureLabel={measureLabel}
+              pointLayers={pointLayers}
+            />
+            <PointsToggle
+              active={showPoints}
+              onToggle={() => setShowPoints((p) => !p)}
+              swatchColor="#b9430b"
+            />
+          </div>
 
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[--color-paper-edge] pb-3 text-xs">
             <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">

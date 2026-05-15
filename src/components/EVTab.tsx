@@ -6,6 +6,7 @@ import { ChoroplethMap } from "./ChoroplethMap";
 import { LayerSelector, type LayerOption } from "./LayerSelector";
 import { ProvenanceBadge } from "./ProvenanceBadge";
 import { HourOfDayStrip } from "./HourOfDayStrip";
+import { PointsToggle } from "./PointsToggle";
 import { useSelectionStore } from "./selectionStore";
 
 const LAYER_OPTIONS: { label: string; measure: string }[] = [
@@ -19,26 +20,40 @@ const LAYER_OPTIONS: { label: string; measure: string }[] = [
 export function EVTab() {
   const { loading, error, countyData, variables } = useData();
   const [selectedMeasure, setSelectedMeasure] = useState("total_charger_count");
+  const [showPoints, setShowPoints] = useState(true);
   const selectedGeoid = useSelectionStore((s) => s.selectedGeoid);
 
+  // Match the layer-selector measure to the station-type filter applied to
+  // the points overlay. Level-specific measures show only that level; the
+  // "Total stations" / "Total chargers" measures show all stations.
+  const stationType: "l1" | "l2" | "l3" | null = (() => {
+    if (selectedMeasure === "l1_station_count") return "l1";
+    if (selectedMeasure === "l2_station_count") return "l2";
+    if (selectedMeasure === "l3_station_count") return "l3";
+    return null;
+  })();
+
+  const overlayLabel = stationType
+    ? `${stationType.toUpperCase()} station`
+    : "EV station";
+
   const pointLayers = useMemo(
-    () => [
-      {
-        geojsonUrl: "/geo/ev_stations.geojson",
-        cluster: false,
-        color: "#1f3aa1",
-        radius: 3.5,
-        layerLabel: "Existing station",
-      },
-      {
-        geojsonUrl: "/geo/ev_demand_locations.geojson",
-        cluster: true,
-        color: "#b9430b",
-        radius: 2.5,
-        layerLabel: "Charging location",
-      },
-    ],
-    []
+    () =>
+      showPoints
+        ? [
+            {
+              geojsonUrl: "/geo/ev_stations.geojson",
+              cluster: true,
+              color: "#1f3aa1",
+              radius: 3.5,
+              layerLabel: overlayLabel,
+              filter: stationType
+                ? (p: Record<string, unknown>) => p.type === stationType
+                : undefined,
+            },
+          ]
+        : undefined,
+    [showPoints, stationType, overlayLabel]
   );
 
   if (loading) return <Loading />;
@@ -153,27 +168,41 @@ export function EVTab() {
             }}
           />
 
-          <ChoroplethMap
-            indicatorCode={selectedCode}
-            countyData={choroplethData}
-            measureLabel={measureLabel}
-            pointLayers={pointLayers}
-          />
+          <div className="relative">
+            <ChoroplethMap
+              indicatorCode={selectedCode}
+              countyData={choroplethData}
+              measureLabel={measureLabel}
+              pointLayers={pointLayers}
+            />
+            <PointsToggle
+              active={showPoints}
+              onToggle={() => setShowPoints((p) => !p)}
+              swatchColor="#1f3aa1"
+            />
+          </div>
 
-          {/* Point overlay legend */}
+          {/* Point overlay legend — reflects the type currently shown */}
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-[--color-paper-edge] pb-3 text-xs">
             <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
               Overlay
             </span>
             <LegendDot
               color="#1f3aa1"
-              label="Existing public station"
-              count="~5,200"
-            />
-            <LegendDot
-              color="#b9430b"
-              label="Active charging location"
-              count="~65,000 · clustered"
+              label={
+                stationType
+                  ? `${stationType.toUpperCase()} station`
+                  : "EV station (all levels)"
+              }
+              count={
+                stationType === "l1"
+                  ? "13"
+                  : stationType === "l2"
+                    ? "4,922"
+                    : stationType === "l3"
+                      ? "580"
+                      : "~5,515"
+              }
             />
           </div>
 
