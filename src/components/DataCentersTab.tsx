@@ -7,11 +7,19 @@ import { ChoroplethMap } from "./ChoroplethMap";
 import { PointsToggle } from "./PointsToggle";
 import { ProvenanceBadge } from "./ProvenanceBadge";
 import { ScenarioSelector } from "./ScenarioSelector";
-import {
-  ImplicationStrip,
-  type ImplicationMeasure,
-} from "./ImplicationStrip";
+import { LayerSelector, type LayerOption } from "./LayerSelector";
 import { useSelectionStore } from "./selectionStore";
+
+/** Statewide-total record per projected measure, shared by the sidebar
+ *  stat card and the county detail panel. */
+export interface ImplicationMeasure {
+  code: string;
+  measure: string;
+  label: string;
+  unit: string;
+  total: number;
+  format?: (v: number) => string;
+}
 import {
   DetailPanelShell,
   DetailRow,
@@ -229,6 +237,17 @@ export function DataCentersTab() {
             />
           </div>
 
+          <LayerSelector
+            options={implications.map(
+              (m): LayerOption => ({ code: m.code, label: m.label })
+            )}
+            selected={selectedCode}
+            onChange={(code) => {
+              const m = variables[code]?.measure;
+              if (m) setSelectedMeasure(m);
+            }}
+          />
+
           <div className="relative">
             <ChoroplethMap
               indicatorCode={selectedCode}
@@ -263,6 +282,10 @@ export function DataCentersTab() {
         </div>
 
         <aside className="col-span-12 lg:col-span-3 space-y-5">
+          <StatewideTotal
+            measure={implications.find((m) => m.code === selectedCode) ?? null}
+          />
+
           {selectedFacility ? (
             <DCFacilityDetailPanel
               facility={selectedFacility}
@@ -313,17 +336,31 @@ export function DataCentersTab() {
         </aside>
       </div>
 
-      <div className="mt-6">
-        <ImplicationStrip
-          measures={implications}
-          selectedCode={selectedCode}
-          onSelect={(code) => {
-            const m = variables[code]?.measure;
-            if (m) setSelectedMeasure(m);
-          }}
-        />
-      </div>
     </article>
+  );
+}
+
+/** Sidebar statewide-total card — sibling of the EVTab/Residential variants. */
+function StatewideTotal({ measure }: { measure: ImplicationMeasure | null }) {
+  if (!measure) return null;
+  const fmt =
+    measure.format ??
+    ((v: number) =>
+      Math.abs(v) >= 1000
+        ? `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k`
+        : Math.round(v).toLocaleString());
+  return (
+    <div className="border border-[--color-paper-edge] bg-[--color-paper] px-5 py-4">
+      <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+        {measure.label}
+      </div>
+      <div className="display tabular-nums mt-2 text-4xl font-medium leading-none text-[--color-energy]">
+        {fmt(measure.total)}
+      </div>
+      <div className="mt-1 font-mono text-[10px] uppercase tracking-widest text-[--color-ink-light]">
+        {measure.unit} · Statewide total
+      </div>
+    </div>
   );
 }
 
