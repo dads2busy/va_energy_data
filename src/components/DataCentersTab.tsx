@@ -200,17 +200,18 @@ export function DataCentersTab() {
           Where the data centers{" "}
           <span className="display-italic">go next</span>
         </h2>
-        <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-[--color-ink-muted]">
-          Pacific Northwest National Laboratory's CERF model places ~3,770
-          candidate data center facilities across the contiguous US under each
-          of 20 scenarios — four demand-growth trajectories crossed with five
-          market-gravity weightings. The map below shows Virginia under your
-          chosen scenario; existing facilities ride along as slate-colored
-          markers.
-        </p>
+        <div className="mt-3 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <p className="text-[15px] leading-relaxed text-[--color-ink-muted]">
+            Pacific Northwest National Laboratory's CERF model places ~3,770
+            candidate data center facilities across the contiguous US under each
+            of 20 scenarios — four demand-growth trajectories crossed with five
+            market-gravity weightings. The map below shows Virginia under your
+            chosen scenario; existing facilities ride along as slate-colored
+            markers.
+          </p>
+          <ScenarioSelector selected={scenario} onChange={setScenario} />
+        </div>
       </header>
-
-      <ScenarioSelector selected={scenario} onChange={setScenario} />
 
       <div className="mt-6 grid grid-cols-12 gap-6">
         <div className="col-span-12 lg:col-span-9 space-y-5">
