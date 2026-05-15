@@ -46,7 +46,7 @@ export function ScenarioSelector({ selected, onChange }: Props) {
   // flipped in an effect so the *next* render uses the change animation.
   const isFirstRenderRef = useRef(true);
   const blinkClass = isFirstRenderRef.current
-    ? "animate-scenario-blink-3"
+    ? "animate-scenario-blink-6"
     : "animate-scenario-blink-2";
 
   useEffect(() => {
