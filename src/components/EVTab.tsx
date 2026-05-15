@@ -252,6 +252,29 @@ export function EVTab() {
 
         {/* Sidebar */}
         <aside className="col-span-12 lg:col-span-3 space-y-5">
+          <div className="border border-[--color-paper-edge] bg-[--color-paper] px-5 py-4">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+              {measureLabel}
+            </div>
+            <div className="display tabular-nums mt-2 text-4xl font-medium leading-none text-[--color-energy]">
+              {total.toLocaleString()}
+            </div>
+            <div className="mt-1 font-mono text-[10px] uppercase tracking-widest text-[--color-ink-light]">
+              Statewide total
+            </div>
+
+            <div className="mt-4 space-y-2 border-t border-[--color-paper-edge] pt-3 text-xs">
+              <Stat
+                label="Counties with data"
+                value={values.length.toLocaleString()}
+              />
+              <Stat
+                label={`Top county (${topGeoid ?? "—"})`}
+                value={max.toLocaleString()}
+              />
+            </div>
+          </div>
+
           {selectedFacility ? (
             <EVFacilityDetailPanel
               facility={selectedFacility}
@@ -282,29 +305,6 @@ export function EVTab() {
               }
             />
           )}
-
-          <div className="border border-[--color-paper-edge] bg-[--color-paper] px-5 py-4">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
-              {measureLabel}
-            </div>
-            <div className="display tabular-nums mt-2 text-4xl font-medium leading-none text-[--color-energy]">
-              {total.toLocaleString()}
-            </div>
-            <div className="mt-1 font-mono text-[10px] uppercase tracking-widest text-[--color-ink-light]">
-              Statewide total
-            </div>
-
-            <div className="mt-4 space-y-2 border-t border-[--color-paper-edge] pt-3 text-xs">
-              <Stat
-                label="Counties with data"
-                value={values.length.toLocaleString()}
-              />
-              <Stat
-                label={`Top county (${topGeoid ?? "—"})`}
-                value={max.toLocaleString()}
-              />
-            </div>
-          </div>
 
           <div className="marginalia">
             <em>How to read.</em> Click any county to filter the hourly profile.

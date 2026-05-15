@@ -240,6 +240,35 @@ export function ResidentialTab() {
         </div>
 
         <aside className="col-span-12 lg:col-span-3 space-y-5">
+          <div className="border border-[--color-paper-edge] bg-[--color-paper] px-5 py-4">
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+              {measureLabel}
+            </div>
+            <div className="display tabular-nums mt-2 text-4xl font-medium leading-none text-[--color-energy]">
+              {isRate
+                ? formatPct(stats.mean)
+                : formatCount(stats.total)}
+            </div>
+            <div className="mt-1 font-mono text-[10px] uppercase tracking-widest text-[--color-ink-light]">
+              {isRate ? "Statewide mean" : "Statewide total"}
+            </div>
+
+            <div className="mt-4 space-y-2 border-t border-[--color-paper-edge] pt-3 text-xs">
+              <Stat
+                label={res === "tract" ? "Tracts with data" : "Counties with data"}
+                value={values.length.toLocaleString()}
+              />
+              <Stat
+                label={`Top ${res} (${topGeoid ?? "—"})`}
+                value={formatValue(stats.max)}
+              />
+              <Stat
+                label="Range"
+                value={`${formatValue(stats.min)} — ${formatValue(stats.max)}`}
+              />
+            </div>
+          </div>
+
           {selectedGeoid && res === "county" ? (
             <ResidentialCountyDetailPanel
               geoid={selectedGeoid}
@@ -287,35 +316,6 @@ export function ResidentialTab() {
               }
             />
           )}
-
-          <div className="border border-[--color-paper-edge] bg-[--color-paper] px-5 py-4">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
-              {measureLabel}
-            </div>
-            <div className="display tabular-nums mt-2 text-4xl font-medium leading-none text-[--color-energy]">
-              {isRate
-                ? formatPct(stats.mean)
-                : formatCount(stats.total)}
-            </div>
-            <div className="mt-1 font-mono text-[10px] uppercase tracking-widest text-[--color-ink-light]">
-              {isRate ? "Statewide mean" : "Statewide total"}
-            </div>
-
-            <div className="mt-4 space-y-2 border-t border-[--color-paper-edge] pt-3 text-xs">
-              <Stat
-                label={res === "tract" ? "Tracts with data" : "Counties with data"}
-                value={values.length.toLocaleString()}
-              />
-              <Stat
-                label={`Top ${res} (${topGeoid ?? "—"})`}
-                value={formatValue(stats.max)}
-              />
-              <Stat
-                label="Range"
-                value={`${formatValue(stats.min)} — ${formatValue(stats.max)}`}
-              />
-            </div>
-          </div>
 
           <div className="marginalia">
             <em>Tract view caveat.</em> Tract-level adoption rates and PV
