@@ -15,11 +15,58 @@ export function DataTab() {
         </h2>
         <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-[--color-ink-muted]">
           Every layer in this atlas comes from a published research dataset.
-          The sections below list each source, how it was processed into the
-          county-level values the dashboard renders, and the specific measures
-          it contributes.
+          The sections below list the source papers it accompanies, each
+          dataset's processing methodology, and the specific measures it
+          contributes.
         </p>
       </header>
+
+      {/* Source papers — citation block at the top of the appendix */}
+      <section className="mb-12 border-y border-[--color-paper-edge] py-6">
+        <div className="rule-with-mark mb-6">
+          <span className="font-mono text-[10px] uppercase tracking-widest">
+            Source papers
+          </span>
+        </div>
+        <ul className="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2">
+          <PaperEntry
+            tag="§III"
+            title="CHARGE-MAP"
+            authors="Islam et al."
+            subtitle="EV charging station placement under uncertainty"
+            venue="PNAS 2026"
+            url={null}
+          />
+          <PaperEntry
+            tag="§IV"
+            title="REVI-Twin"
+            authors="Kishore, Islam, Marathe"
+            subtitle="Digital twin of Virginia residential energy"
+            venue="npj 2026"
+            url={null}
+          />
+          <PaperEntry
+            tag="§IV"
+            title="Thorve scidata"
+            authors="Thorve et al."
+            subtitle="Synthetic hourly residential energy, nationwide"
+            venue="Scientific Data (submitted)"
+            url={null}
+          />
+          <PaperEntry
+            tag="—"
+            title="RAISE"
+            authors="(authors)"
+            subtitle="Retrofit and equity scenarios for residential energy"
+            venue="(venue)"
+            url={null}
+            note="Cited in the README; no RAISE-derived layer is currently rendered in the dashboard."
+          />
+        </ul>
+        <p className="mt-5 font-mono text-[10px] uppercase tracking-widest text-[--color-ink-light]">
+          URLs · TBD — paper links will be filled in once provided.
+        </p>
+      </section>
 
       <div className="space-y-12">
         <DatasetSection
@@ -366,6 +413,64 @@ function SchemaNote({ title, body }: { title: string; body: string }) {
         {body}
       </p>
     </div>
+  );
+}
+
+function PaperEntry({
+  tag,
+  title,
+  authors,
+  subtitle,
+  venue,
+  url,
+  note,
+}: {
+  tag: string;
+  title: string;
+  authors: string;
+  subtitle: string;
+  venue: string;
+  url: string | null;
+  note?: string;
+}) {
+  const titleNode = url ? (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="text-[--color-energy-deep] underline decoration-[--color-paper-edge] hover:decoration-[--color-energy]"
+    >
+      {title} ↗
+    </a>
+  ) : (
+    <>
+      {title}{" "}
+      <span className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-light]">
+        (URL TBD)
+      </span>
+    </>
+  );
+
+  return (
+    <li>
+      <div className="citation">
+        <span className="text-[--color-energy]">{tag}</span> · {venue}
+      </div>
+      <div className="display mt-1 text-lg font-medium leading-tight text-[--color-ink]">
+        {titleNode}
+      </div>
+      <div className="mt-0.5 text-[13px] text-[--color-ink-muted]">
+        {authors}
+      </div>
+      <div className="mt-1 text-[12px] leading-snug text-[--color-ink-muted]">
+        {subtitle}
+      </div>
+      {note && (
+        <div className="mt-1 text-[11px] italic text-[--color-ink-light]">
+          {note}
+        </div>
+      )}
+    </li>
   );
 }
 
