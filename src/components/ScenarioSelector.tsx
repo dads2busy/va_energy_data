@@ -41,29 +41,18 @@ export function ScenarioSelector({ selected, onChange }: Props) {
   const activeTier = parsed?.tier ?? "moderate";
   const activeWeight = parsed?.weight ?? 50;
 
-  // First render of the chooser blinks 6 times; subsequent user-driven
-  // selection changes blink 2 times.
-  //
-  // We hold the animation class in state (not a ref) so that re-renders
-  // caused by unrelated state — e.g. parent firing setSelectedGeoid on
-  // initial data load — don't toggle the className mid-animation and
-  // restart it. The class only changes when the effect explicitly clears
-  // it after the animation duration.
+  // User-driven selection changes blink the newly-active cell 4 times.
+  // Initial mount renders the active cell without animation.
   const isFirstMountRef = useRef(true);
-  const [blinkClass, setBlinkClass] = useState<string>(
-    "animate-scenario-blink-6"
-  );
+  const [blinkClass, setBlinkClass] = useState<string>("");
 
   useEffect(() => {
     if (isFirstMountRef.current) {
-      // Initial-mount animation is already kicked off via initial state.
       isFirstMountRef.current = false;
-      const t = setTimeout(() => setBlinkClass(""), 1800);
-      return () => clearTimeout(t);
+      return;
     }
-    // Subsequent selection change → short blink on the new active cell.
-    setBlinkClass("animate-scenario-blink-2");
-    const t = setTimeout(() => setBlinkClass(""), 600);
+    setBlinkClass("animate-scenario-blink-4");
+    const t = setTimeout(() => setBlinkClass(""), 1200);
     return () => clearTimeout(t);
   }, [selected]);
 
