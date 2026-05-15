@@ -1,5 +1,7 @@
 "use client";
 
+import { CompassMark } from "./CompassRose";
+
 const TIERS = [
   { key: "low", label: "Low growth" },
   { key: "moderate", label: "Moderate growth" },
@@ -87,10 +89,11 @@ export function ScenarioSelector({ selected, onChange }: Props) {
               <button
                 key={w}
                 onClick={() => onChange(makeScenario({ tier: tier.key, weight: w }))}
-                className={`relative border-l border-[--color-paper-edge] py-3 transition-colors ${
+                aria-pressed={active}
+                className={`relative cursor-pointer border-l border-[--color-paper-edge] py-3 transition-colors ${
                   active
-                    ? "bg-[--color-energy-soft] text-[--color-energy-deep]"
-                    : "text-[--color-ink-muted] hover:bg-[--color-paper-deep] hover:text-[--color-ink]"
+                    ? "bg-[#ede4d0] font-medium text-[--color-energy-deep]"
+                    : "text-[--color-ink-muted] hover:bg-[#ede4d0] hover:text-[--color-ink]"
                 }`}
               >
                 {active && (
@@ -99,8 +102,16 @@ export function ScenarioSelector({ selected, onChange }: Props) {
                     className="absolute inset-x-2 -top-px h-[2px] bg-[--color-energy]"
                   />
                 )}
-                <span className="font-mono text-[11px]">
-                  {tier.key.charAt(0).toUpperCase()}-{w}
+                <span className="flex items-center justify-center gap-1.5">
+                  <span
+                    aria-hidden="true"
+                    className="flex h-[11px] w-[11px] shrink-0 items-center justify-center"
+                  >
+                    {active && <CompassMark size={11} />}
+                  </span>
+                  <span className="font-mono text-[11px]">
+                    {tier.key.charAt(0).toUpperCase()}-{w}
+                  </span>
                 </span>
               </button>
             );
