@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useQueryState } from "nuqs";
 import { useData } from "./DataProvider";
 import { ChoroplethMap } from "./ChoroplethMap";
 import { PointsToggle } from "./PointsToggle";
 import { ProvenanceBadge } from "./ProvenanceBadge";
 import { ScenarioSelector } from "./ScenarioSelector";
-import { LayerSelector, type LayerOption } from "./LayerSelector";
 import { useSelectionStore } from "./selectionStore";
 
 /** Statewide-total record per projected measure, shared by the sidebar
@@ -85,9 +84,11 @@ export function DataCentersTab() {
   const [scenario, setScenario] = useQueryState("dc_scenario", {
     defaultValue: DEFAULT_SCENARIO,
   });
-  const [selectedMeasure, setSelectedMeasure] = useState(
-    "projected_data_center_count"
-  );
+  // The choropleth is locked to facility count — all six CERF measures are
+  // linear derivatives of count and produce visually identical choropleths.
+  // The county detail panel and statewide totals box already surface every
+  // measure, so a single map view suffices.
+  const MAP_MEASURE = "projected_data_center_count";
   const [showPoints, setShowPoints] = useState(true);
   const [selectedFacility, setSelectedFacility] = useState<FacilityProps | null>(
     null
@@ -150,22 +151,9 @@ export function DataCentersTab() {
         return { ...m, code, total };
       }).filter((x): x is ImplicationMeasure => x !== null);
 
-  // The current `selectedMeasure` may not have a code under the new scenario
-  // (rare, but defensive). If so, snap to the first implication.
-  // Must be called unconditionally before any early returns (rules of hooks).
-  useEffect(() => {
-    if (implications.length === 0) return;
-    const hasSelected = implications.find(
-      (m) => m.measure === selectedMeasure
-    );
-    if (!hasSelected) {
-      setSelectedMeasure(implications[0].measure);
-    }
-  }, [scenario, implications, selectedMeasure]);
-
   // Resolve indicator + choropleth slice before any conditional returns so
   // the default-selection hook runs unconditionally.
-  const preSelectedCode = findCode(selectedMeasure, scenario);
+  const preSelectedCode = findCode(MAP_MEASURE, scenario);
   const preChoropleth: Record<string, Record<string, number>> = {};
   if (countyData && preSelectedCode) {
     for (const geoid of Object.keys(countyData)) {
@@ -186,7 +174,7 @@ export function DataCentersTab() {
   if (!selectedCode) {
     return (
       <ErrorState
-        message={`No (measure=${selectedMeasure}, scenario=${scenario}) entry in variables.json. Re-run build-data.`}
+        message={`No (measure=${MAP_MEASURE}, scenario=${scenario}) entry in variables.json. Re-run build-data.`}
       />
     );
   }
@@ -237,17 +225,6 @@ export function DataCentersTab() {
             />
           </div>
 
-          <LayerSelector
-            options={implications.map(
-              (m): LayerOption => ({ code: m.code, label: m.label })
-            )}
-            selected={selectedCode}
-            onChange={(code) => {
-              const m = variables[code]?.measure;
-              if (m) setSelectedMeasure(m);
-            }}
-          />
-
           <div className="relative">
             <ChoroplethMap
               indicatorCode={selectedCode}
@@ -282,9 +259,7 @@ export function DataCentersTab() {
         </div>
 
         <aside className="col-span-12 lg:col-span-3 space-y-5">
-          <StatewideTotal
-            measure={implications.find((m) => m.code === selectedCode) ?? null}
-          />
+          <StatewideTotals measures={implications} />
 
           {selectedFacility ? (
             <DCFacilityDetailPanel
@@ -340,26 +315,39 @@ export function DataCentersTab() {
   );
 }
 
-/** Sidebar statewide-total card — sibling of the EVTab/Residential variants. */
-function StatewideTotal({ measure }: { measure: ImplicationMeasure | null }) {
-  if (!measure) return null;
-  const fmt =
-    measure.format ??
-    ((v: number) =>
-      Math.abs(v) >= 1000
-        ? `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k`
-        : Math.round(v).toLocaleString());
+/** Sidebar statewide-totals card — lists every projected measure for the
+ *  active scenario in a compact stacked layout. */
+function StatewideTotals({ measures }: { measures: ImplicationMeasure[] }) {
+  const fmt = (m: ImplicationMeasure) => {
+    const v = m.total;
+    if (m.format) return m.format(v);
+    return Math.abs(v) >= 1000
+      ? `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k`
+      : Math.round(v).toLocaleString();
+  };
   return (
     <div className="border border-[--color-paper-edge] bg-[--color-paper] px-5 py-4">
       <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
-        {measure.label}
+        Statewide totals · this scenario
       </div>
-      <div className="display tabular-nums mt-2 text-4xl font-medium leading-none text-[--color-energy]">
-        {fmt(measure.total)}
-      </div>
-      <div className="mt-1 font-mono text-[10px] uppercase tracking-widest text-[--color-ink-light]">
-        {measure.unit} · Statewide total
-      </div>
+      <dl className="mt-3 space-y-3">
+        {measures.map((m) => (
+          <div
+            key={m.code}
+            className="flex items-baseline justify-between gap-3 border-t border-[--color-paper-edge] pt-2 first:border-t-0 first:pt-0"
+          >
+            <dt className="text-[11px] leading-snug text-[--color-ink-muted]">
+              {m.label}
+              <span className="ml-1 font-mono text-[9px] uppercase tracking-widest text-[--color-ink-light]">
+                {m.unit}
+              </span>
+            </dt>
+            <dd className="display tabular-nums text-lg font-medium text-[--color-energy]">
+              {fmt(m)}
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
