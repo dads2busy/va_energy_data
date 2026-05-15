@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CompassMark } from "./CompassRose";
 
 const TIERS = [
@@ -41,16 +41,30 @@ export function ScenarioSelector({ selected, onChange }: Props) {
   const activeTier = parsed?.tier ?? "moderate";
   const activeWeight = parsed?.weight ?? 50;
 
-  // First render uses a 3-blink animation; subsequent user-driven selection
-  // changes use 2 blinks. The ref is read during render (allowed) and
-  // flipped in an effect so the *next* render uses the change animation.
-  const isFirstRenderRef = useRef(true);
-  const blinkClass = isFirstRenderRef.current
-    ? "animate-scenario-blink-6"
-    : "animate-scenario-blink-2";
+  // First render of the chooser blinks 6 times; subsequent user-driven
+  // selection changes blink 2 times.
+  //
+  // We hold the animation class in state (not a ref) so that re-renders
+  // caused by unrelated state — e.g. parent firing setSelectedGeoid on
+  // initial data load — don't toggle the className mid-animation and
+  // restart it. The class only changes when the effect explicitly clears
+  // it after the animation duration.
+  const isFirstMountRef = useRef(true);
+  const [blinkClass, setBlinkClass] = useState<string>(
+    "animate-scenario-blink-6"
+  );
 
   useEffect(() => {
-    isFirstRenderRef.current = false;
+    if (isFirstMountRef.current) {
+      // Initial-mount animation is already kicked off via initial state.
+      isFirstMountRef.current = false;
+      const t = setTimeout(() => setBlinkClass(""), 1800);
+      return () => clearTimeout(t);
+    }
+    // Subsequent selection change → short blink on the new active cell.
+    setBlinkClass("animate-scenario-blink-2");
+    const t = setTimeout(() => setBlinkClass(""), 600);
+    return () => clearTimeout(t);
   }, [selected]);
 
   return (
