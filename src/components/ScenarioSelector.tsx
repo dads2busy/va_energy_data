@@ -90,9 +90,9 @@ export function ScenarioSelector({ selected, onChange }: Props) {
                 key={w}
                 onClick={() => onChange(makeScenario({ tier: tier.key, weight: w }))}
                 aria-pressed={active}
-                className={`relative cursor-pointer border-l border-[--color-paper-edge] py-3 transition-colors ${
+                className={`relative cursor-pointer border-l border-[--color-paper-edge] py-[9px] transition-colors ${
                   active
-                    ? "bg-[#ede4d0] font-medium text-[--color-energy-deep]"
+                    ? "bg-[#ede4d0] text-[--color-energy-deep]"
                     : "text-[--color-ink-muted] hover:bg-[#ede4d0] hover:text-[--color-ink]"
                 }`}
               >
@@ -109,7 +109,7 @@ export function ScenarioSelector({ selected, onChange }: Props) {
                   >
                     {active && <CompassMark size={11} />}
                   </span>
-                  <span className="font-mono text-[11px]">
+                  <span className="font-mono text-[11px] font-bold">
                     {tier.key.charAt(0).toUpperCase()}-{w}
                   </span>
                 </span>
