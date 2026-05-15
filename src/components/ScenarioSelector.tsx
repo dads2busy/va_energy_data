@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { CompassMark } from "./CompassRose";
 
 const TIERS = [
@@ -39,6 +40,18 @@ export function ScenarioSelector({ selected, onChange }: Props) {
   const parsed = parseScenario(selected);
   const activeTier = parsed?.tier ?? "moderate";
   const activeWeight = parsed?.weight ?? 50;
+
+  // First render uses a 3-blink animation; subsequent user-driven selection
+  // changes use 2 blinks. The ref is read during render (allowed) and
+  // flipped in an effect so the *next* render uses the change animation.
+  const isFirstRenderRef = useRef(true);
+  const blinkClass = isFirstRenderRef.current
+    ? "animate-scenario-blink-3"
+    : "animate-scenario-blink-2";
+
+  useEffect(() => {
+    isFirstRenderRef.current = false;
+  }, [selected]);
 
   return (
     <div className="border border-[--color-paper-edge] bg-[--color-paper] p-4">
@@ -92,7 +105,7 @@ export function ScenarioSelector({ selected, onChange }: Props) {
                 aria-pressed={active}
                 className={`relative cursor-pointer border-l border-[--color-paper-edge] py-[9px] transition-colors ${
                   active
-                    ? "bg-[#ede4d0] text-[--color-energy-deep]"
+                    ? `bg-[#ede4d0] text-[--color-energy-deep] ${blinkClass}`
                     : "text-[--color-ink-muted] hover:bg-[#ede4d0] hover:text-[--color-ink]"
                 }`}
               >

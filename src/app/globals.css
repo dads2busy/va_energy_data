@@ -212,6 +212,24 @@ path.leaflet-interactive:focus {
   animation: fade-up 600ms ease-out backwards;
 }
 
+/* Scenario-cell selection blinks. The cell's background alternates between
+   the active paper-deep tone and the page paper tone so it looks like the
+   highlight is toggling off-and-on the requested number of times. */
+@keyframes scenario-blink-3 {
+  0%, 33.33%, 66.66%, 100% { background-color: #ede4d0; }
+  16.67%, 50%, 83.33%     { background-color: #f6f1e6; }
+}
+@keyframes scenario-blink-2 {
+  0%, 50%, 100% { background-color: #ede4d0; }
+  25%, 75%      { background-color: #f6f1e6; }
+}
+.animate-scenario-blink-3 {
+  animation: scenario-blink-3 0.9s ease-in-out 1;
+}
+.animate-scenario-blink-2 {
+  animation: scenario-blink-2 0.6s ease-in-out 1;
+}
+
 /* Editorial pull-quote bracket (left side of stat blocks) */
 .pull-bracket {
   border-left: 2px solid var(--color-ink);
