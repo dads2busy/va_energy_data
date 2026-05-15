@@ -1,5 +1,7 @@
 "use client";
 
+import { CompassMark } from "./CompassRose";
+
 export interface LayerOption {
   code: string;
   label: string;
@@ -23,10 +25,11 @@ export function LayerSelector({ options, selected, onChange }: Props) {
           <button
             key={opt.code}
             onClick={() => onChange(opt.code)}
-            className={`relative border-l border-[--color-paper-edge] px-3 py-1 text-xs transition-colors first:border-l-0 ${
+            aria-pressed={active}
+            className={`relative inline-flex cursor-pointer items-center gap-1.5 border-l border-[--color-paper-edge] px-3 py-1 text-xs transition-colors first:border-l-0 ${
               active
-                ? "font-medium text-[--color-energy-deep]"
-                : "text-[--color-ink-muted] hover:text-[--color-ink]"
+                ? "bg-[#ede4d0] font-medium text-[--color-energy-deep]"
+                : "text-[--color-ink-muted] hover:bg-[#ede4d0] hover:text-[--color-ink]"
             }`}
           >
             {active && (
@@ -35,6 +38,12 @@ export function LayerSelector({ options, selected, onChange }: Props) {
                 className="absolute inset-x-2 -top-px h-[2px] bg-[--color-energy]"
               />
             )}
+            <span
+              aria-hidden="true"
+              className="flex h-[11px] w-[11px] shrink-0 items-center justify-center"
+            >
+              {active && <CompassMark size={11} />}
+            </span>
             {opt.label}
           </button>
         );

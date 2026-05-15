@@ -121,6 +121,14 @@ body {
   filter: contrast(0.92) saturate(0.55) brightness(1.02);
 }
 
+/* Suppress the browser's blue focus outline on clicked SVG paths */
+.leaflet-interactive:focus {
+  outline: none;
+}
+path.leaflet-interactive:focus {
+  outline: none;
+}
+
 .leaflet-control-attribution {
   background: rgba(246, 241, 230, 0.75) !important;
   color: var(--color-ink-muted) !important;

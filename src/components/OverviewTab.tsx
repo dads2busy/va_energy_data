@@ -1,10 +1,103 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useData } from "./DataProvider";
 import { ChoroplethMap } from "./ChoroplethMap";
+import { PointsToggle } from "./PointsToggle";
+
+type FacilityProps = Record<string, unknown>;
+type CountyProps = Record<string, unknown>;
+
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
+interface DCFeature {
+  properties?: {
+    facility_id?: string;
+    facility_name?: string;
+    operator?: string;
+    sqft?: number | string;
+    type?: string;
+    county_id?: number | string;
+  };
+}
+
+/** Aggregated metrics for the data-center points within a single county. */
+interface CountyAggregate {
+  totalRecords: number;
+  byGeomType: Record<string, number>;
+  totalSqft: number;
+  topOperators: Array<{ name: string; count: number }>;
+}
 
 export function OverviewTab() {
   const { loading, error, countyData, variables } = useData();
+  const [showPoints, setShowPoints] = useState(true);
+  const [selectedFacility, setSelectedFacility] = useState<FacilityProps | null>(
+    null
+  );
+  const [selectedCounty, setSelectedCountyState] = useState<CountyProps | null>(
+    null
+  );
+  const [dcByCounty, setDcByCounty] = useState<Record<string, DCFeature[]> | null>(
+    null
+  );
+
+  // Selection mutex: clicking a county clears the facility selection (and vice
+  // versa) so only one detail panel is ever active.
+  const handleFacilityClick = useCallback((props: FacilityProps) => {
+    setSelectedCountyState(null);
+    setSelectedFacility(props);
+  }, []);
+  const handleCountyClick = useCallback((props: CountyProps) => {
+    setSelectedFacility(null);
+    setSelectedCountyState(props);
+  }, []);
+
+  // Lazy-load the existing-DC points once so we can aggregate per county
+  // without re-fetching on every click. The map already loads this file, so
+  // it's typically warm in the HTTP cache by the time the user clicks.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(`${BASE}/geo/dc_existing.geojson`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (cancelled) return;
+        const idx: Record<string, DCFeature[]> = {};
+        for (const f of (data.features ?? []) as DCFeature[]) {
+          const cid = f.properties?.county_id;
+          if (cid == null) continue;
+          const key = String(cid).padStart(5, "0");
+          (idx[key] ??= []).push(f);
+        }
+        setDcByCounty(idx);
+      } catch {
+        // Non-fatal; CountyDetailPanel falls back to countyData totals.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Stable identity for the points layer so the map doesn't rebuild on every
+  // unrelated render. The layer is only passed in when showPoints is true.
+  const pointLayers = useMemo(
+    () =>
+      showPoints
+        ? [
+            {
+              geojsonUrl: "/geo/dc_existing.geojson",
+              cluster: true,
+              color: "#475569",
+              radius: 3,
+              layerLabel: "Data center facility",
+            },
+          ]
+        : undefined,
+    [showPoints]
+  );
 
   if (loading) return <Loading />;
   if (error || !countyData || !variables)
@@ -134,11 +227,39 @@ export function OverviewTab() {
             Plate 1.1
           </span>
         </div>
-        <ChoroplethMap
-          indicatorCode={indicatorCode}
-          countyData={choroplethData}
-          measureLabel="Data center records"
-        />
+        <div className="grid grid-cols-12 gap-4">
+          <div className="relative col-span-12 lg:col-span-9">
+            <ChoroplethMap
+              indicatorCode={indicatorCode}
+              countyData={choroplethData}
+              measureLabel="Data center records"
+              pointLayers={pointLayers}
+              onPointClick={handleFacilityClick}
+              onCountyClick={handleCountyClick}
+            />
+            <PointsToggle
+              active={showPoints}
+              onToggle={() => setShowPoints((p) => !p)}
+              swatchColor="#475569"
+            />
+          </div>
+          <div className="col-span-12 lg:col-span-3">
+            {selectedFacility ? (
+              <FacilityDetailPanel
+                facility={selectedFacility}
+                onClose={() => setSelectedFacility(null)}
+              />
+            ) : (
+              <CountyDetailPanel
+                county={selectedCounty}
+                indicatorCode={indicatorCode}
+                countyData={choroplethData}
+                dcByCounty={dcByCounty}
+                onClose={() => setSelectedCountyState(null)}
+              />
+            )}
+          </div>
+        </div>
       </section>
 
       {/* Reading guide */}
@@ -157,7 +278,7 @@ export function OverviewTab() {
           <ReadingNote
             number="02"
             title="Pick a chapter to drill down"
-            body="Chapter II turns the map onto EV charging infrastructure. Chapters III–V (in progress) extend to adoption, projected siting, and retrofitting policy."
+            body="Chapter II turns the map onto EV charging infrastructure. Chapter III extends to adoption, Chapter IV to projected siting."
           />
           <ReadingNote
             number="03"
@@ -167,6 +288,341 @@ export function OverviewTab() {
         </div>
       </section>
     </article>
+  );
+}
+
+/**
+ * Sidebar panel that fills with the clicked facility's attributes.
+ * Empty state when nothing is selected.
+ */
+function FacilityDetailPanel({
+  facility,
+  onClose,
+}: {
+  facility: FacilityProps | null;
+  onClose: () => void;
+}) {
+  if (!facility) {
+    return (
+      <div className="border border-dashed border-[--color-paper-edge] bg-[--color-paper] px-4 py-6 text-center">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+          Facility detail
+        </div>
+        <p className="mt-3 text-[12px] leading-snug text-[--color-ink-muted]">
+          <em className="display-italic">Click a data center point</em> on the
+          map to inspect its operator, surface area, and provenance.
+        </p>
+      </div>
+    );
+  }
+
+  const name = String(facility.facility_name ?? facility.facility_id ?? "(unnamed)");
+  const operator =
+    typeof facility.operator === "string" && facility.operator.trim()
+      ? facility.operator
+      : null;
+  const sqftNum =
+    typeof facility.sqft === "number"
+      ? facility.sqft
+      : typeof facility.sqft === "string"
+        ? Number(facility.sqft)
+        : NaN;
+  const sqft = Number.isFinite(sqftNum) ? Math.round(sqftNum) : null;
+  const geomType = typeof facility.type === "string" ? facility.type : null;
+  const countyId =
+    typeof facility.county_id === "number" || typeof facility.county_id === "string"
+      ? String(facility.county_id)
+      : null;
+  const year =
+    typeof facility.year === "number" ? facility.year : null;
+  const facilityId =
+    typeof facility.facility_id === "string" ? facility.facility_id : null;
+  const sourceId =
+    typeof facility.source_id === "number" || typeof facility.source_id === "string"
+      ? String(facility.source_id)
+      : null;
+
+  return (
+    <div className="border border-[--color-paper-edge] bg-[--color-paper]">
+      <div className="flex items-start justify-between gap-2 border-b border-[--color-paper-edge] px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+            Selected facility
+          </div>
+          <h3 className="display mt-1 text-lg leading-tight text-[--color-ink]">
+            {name}
+          </h3>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close facility detail"
+          className="text-[--color-ink-muted] transition-colors hover:text-[--color-ink]"
+        >
+          <span aria-hidden="true" className="text-xl leading-none">×</span>
+        </button>
+      </div>
+
+      <dl className="space-y-3 px-4 py-3">
+        <DetailRow label="Operator" value={operator ?? "—"} emphasize={!!operator} />
+        <DetailRow
+          label="Surface area"
+          value={sqft !== null ? `${sqft.toLocaleString()} sq ft` : "—"}
+          mono
+          emphasize={sqft !== null}
+        />
+        <DetailRow
+          label="OSM geometry"
+          value={geomType ?? "—"}
+          chip={geomType ?? undefined}
+        />
+        <DetailRow label="County FIPS" value={countyId ?? "—"} mono />
+        <DetailRow label="Source year" value={year !== null ? String(year) : "—"} mono />
+      </dl>
+
+      {(facilityId || sourceId) && (
+        <div className="border-t border-[--color-paper-edge] px-4 py-3">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-[--color-ink-light]">
+            Provenance
+          </div>
+          {facilityId && (
+            <div className="mt-1 break-all font-mono text-[10px] text-[--color-ink-muted]">
+              facility_id · {facilityId}
+            </div>
+          )}
+          {sourceId && (
+            <div className="font-mono text-[10px] text-[--color-ink-muted]">
+              osm_id · {sourceId}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Sidebar panel that fills with the aggregated data-center metrics for the
+ * clicked county. Falls back to the choropleth's record count when the
+ * per-point geojson hasn't loaded yet.
+ */
+function CountyDetailPanel({
+  county,
+  indicatorCode,
+  countyData,
+  dcByCounty,
+  onClose,
+}: {
+  county: CountyProps | null;
+  indicatorCode: string;
+  countyData: Record<string, Record<string, number>>;
+  dcByCounty: Record<string, DCFeature[]> | null;
+  onClose: () => void;
+}) {
+  if (!county) {
+    return (
+      <div className="border border-dashed border-[--color-paper-edge] bg-[--color-paper] px-4 py-6 text-center">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+          County detail
+        </div>
+        <p className="mt-3 text-[12px] leading-snug text-[--color-ink-muted]">
+          <em className="display-italic">Click any county</em> to see its
+          aggregated data-center records and operators.
+        </p>
+      </div>
+    );
+  }
+
+  const geoid =
+    typeof county.geoid === "string" || typeof county.geoid === "number"
+      ? String(county.geoid)
+      : null;
+  const name =
+    typeof county.region_name === "string"
+      ? county.region_name
+      : (geoid ?? "(unknown)");
+  const countyKey = geoid ? geoid.padStart(5, "0") : null;
+  const features = countyKey ? dcByCounty?.[countyKey] ?? null : null;
+  const fallbackTotal =
+    geoid && Number.isFinite(countyData[geoid]?.[indicatorCode])
+      ? countyData[geoid][indicatorCode]
+      : 0;
+
+  const agg: CountyAggregate = features
+    ? aggregateFeatures(features)
+    : {
+        totalRecords: fallbackTotal,
+        byGeomType: {},
+        totalSqft: 0,
+        topOperators: [],
+      };
+
+  return (
+    <div className="border border-[--color-paper-edge] bg-[--color-paper]">
+      <div className="flex items-start justify-between gap-2 border-b border-[--color-paper-edge] px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+            Selected county
+          </div>
+          <h3 className="display mt-1 text-lg leading-tight text-[--color-ink]">
+            {name}
+          </h3>
+          <div className="mt-0.5 font-mono text-[10px] text-[--color-ink-light]">
+            FIPS · {geoid ?? "—"}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close county detail"
+          className="text-[--color-ink-muted] transition-colors hover:text-[--color-ink]"
+        >
+          <span aria-hidden="true" className="text-xl leading-none">×</span>
+        </button>
+      </div>
+
+      <dl className="space-y-3 px-4 py-3">
+        <DetailRow
+          label="Total records"
+          value={agg.totalRecords.toLocaleString()}
+          mono
+          emphasize={agg.totalRecords > 0}
+        />
+        <DetailRow
+          label="Surface area (sum)"
+          value={
+            agg.totalSqft > 0
+              ? `${Math.round(agg.totalSqft).toLocaleString()} sq ft`
+              : "—"
+          }
+          mono
+          emphasize={agg.totalSqft > 0}
+        />
+      </dl>
+
+      {Object.keys(agg.byGeomType).length > 0 && (
+        <div className="border-t border-[--color-paper-edge] px-4 py-3">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-[--color-ink-muted]">
+            By OSM geometry
+          </div>
+          <ul className="mt-2 space-y-1">
+            {Object.entries(agg.byGeomType)
+              .sort((a, b) => b[1] - a[1])
+              .map(([t, n]) => (
+                <li
+                  key={t}
+                  className="flex items-baseline justify-between gap-2 text-[12px]"
+                >
+                  <span className="text-[--color-ink-muted]">{t}</span>
+                  <span className="font-mono tabular-nums text-[--color-ink]">
+                    {n.toLocaleString()}
+                  </span>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+
+      {agg.topOperators.length > 0 && (
+        <div className="border-t border-[--color-paper-edge] px-4 py-3">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-[--color-ink-muted]">
+            Top operators
+          </div>
+          <ul className="mt-2 space-y-1">
+            {agg.topOperators.map((op) => (
+              <li
+                key={op.name}
+                className="flex items-baseline justify-between gap-2 text-[12px]"
+              >
+                <span className="truncate text-[--color-ink]">{op.name}</span>
+                <span className="font-mono tabular-nums text-[--color-ink-muted]">
+                  {op.count}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {!features && (
+        <div className="border-t border-[--color-paper-edge] px-4 py-3 font-mono text-[9px] uppercase tracking-widest text-[--color-ink-light]">
+          Per-record breakdown loading…
+        </div>
+      )}
+    </div>
+  );
+}
+
+function aggregateFeatures(features: DCFeature[]): CountyAggregate {
+  const byGeomType: Record<string, number> = {};
+  const byOperator: Record<string, number> = {};
+  let totalSqft = 0;
+  for (const f of features) {
+    const p = f.properties ?? {};
+    if (p.type) byGeomType[p.type] = (byGeomType[p.type] ?? 0) + 1;
+    if (typeof p.operator === "string" && p.operator.trim()) {
+      byOperator[p.operator] = (byOperator[p.operator] ?? 0) + 1;
+    }
+    const sqftNum =
+      typeof p.sqft === "number"
+        ? p.sqft
+        : typeof p.sqft === "string"
+          ? Number(p.sqft)
+          : NaN;
+    if (Number.isFinite(sqftNum)) totalSqft += sqftNum;
+  }
+  const topOperators = Object.entries(byOperator)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }));
+  return {
+    totalRecords: features.length,
+    byGeomType,
+    totalSqft,
+    topOperators,
+  };
+}
+
+function DetailRow({
+  label,
+  value,
+  mono,
+  chip,
+  emphasize,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  chip?: string;
+  emphasize?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <dt className="font-mono text-[9px] uppercase tracking-widest text-[--color-ink-muted]">
+        {label}
+      </dt>
+      <dd>
+        {chip ? (
+          <span
+            className={`inline-block border px-2 py-0.5 text-[10px] uppercase tracking-widest ${
+              emphasize ?? true
+                ? "border-[--color-ink-faint] text-[--color-ink]"
+                : "border-[--color-paper-edge] text-[--color-ink-muted]"
+            }`}
+          >
+            {value}
+          </span>
+        ) : (
+          <span
+            className={`${mono ? "font-mono text-[12px]" : "text-[13px]"} ${
+              emphasize ? "text-[--color-ink]" : "text-[--color-ink-muted]"
+            }`}
+          >
+            {value}
+          </span>
+        )}
+      </dd>
+    </div>
   );
 }
 
