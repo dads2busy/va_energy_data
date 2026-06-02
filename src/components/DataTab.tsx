@@ -264,30 +264,46 @@ export function DataTab() {
           methodology={
             <>
               <p>
-                An observed inventory of Virginia's electrical infrastructure
-                drawn from two HIFLD ArcGIS feature services — Power Plants and
-                Electric Substations — queried with{" "}
-                <Code>where=STATE=&apos;VA&apos;</Code>. Power plants span
-                hydro, natural gas, nuclear, coal, solar, and other generating
-                stations; substations (69 kV and above) switch, transform, and
-                regulate the delivery of power to local load.
+                An observed inventory of Virginia's electrical grid, pulled from
+                two HIFLD ArcGIS feature services — Power Plants and Electric
+                Substations — republished by the 543rd Engineer Detachment GPC
+                (ArcGIS org <Code>services5.arcgis.com/HDRa0B57OVrv2E1q</Code>)
+                and queried with <Code>where=STATE=&apos;VA&apos;</Code>. Power
+                plants span hydro, natural gas, nuclear, coal, solar, biomass,
+                and other generating stations; electric substations — HIFLD maps
+                those rated <Code>69 kV</Code> and above — switch, transform, and
+                regulate the delivery of power to local load. Snapshot taken{" "}
+                <Code>2026-05-29</Code>.
               </p>
               <p>
-                Each county is assigned directly from the source{" "}
-                <Code>COUNTYFIPS</Code> field (no spatial join). Plant capacity
-                sums the HIFLD <Code>OPER_CAP</Code> field; the null sentinel
-                (<Code>-999999</Code>) and missing values are treated as 0, so
-                county capacity is a lower bound. Per-facility fields (operator,
-                fuel source, capacity, voltage, status) persist on the point
-                layer for the on-map detail panel.
+                County FIPS comes from each feature's source{" "}
+                <Code>COUNTYFIPS</Code> field. The handful of facilities HIFLD
+                ships without a usable code — notably the offshore{" "}
+                <em>Coastal Virginia Offshore Wind</em> (CVOW) farm, coded{" "}
+                <Code>NOT AVAILABLE</Code> — are assigned to the{" "}
+                <em className="display-italic">nearest</em> 2020 Census county
+                polygon from their coordinates (CVOW → Virginia Beach,{" "}
+                <Code>51810</Code>), so every mapped facility is also counted at
+                the county level and the point overlay and choropleth agree.
+              </p>
+              <p>
+                Total plant capacity sums HIFLD's <Code>OPER_CAP</Code>{" "}
+                (operating capacity, MW); the null sentinel (<Code>-999999</Code>)
+                and blank values are treated as 0, so a county's capacity is a
+                lower bound (181 of 189 plants report a capacity). Per-facility
+                fields — operator, primary fuel (<Code>PRIM_FUEL</Code>),
+                capacity, max voltage (<Code>MAX_VOLT</Code>), line count, and
+                status — ride along on the point layer for the on-map detail
+                panel, where power plants render as individual markers and
+                substations cluster by county.
               </p>
             </>
           }
           measures={[
-            ["power_plant_count", "Count of HIFLD power plants per county."],
-            ["substation_count", "Count of HIFLD electric substations per county."],
-            ["power_facility_count", "Plants + substations per county."],
-            ["total_plant_capacity_mw", "Sum of HIFLD operating capacity (MW); unreported plants count as 0."],
+            ["power_plant_count", "Count of generating stations per county (HIFLD Power Plants). Aggregation: sum."],
+            ["substation_count", "Count of electric substations (≥ 69 kV) per county. Aggregation: sum."],
+            ["power_facility_count", "Combined plants + substations per county — overall infrastructure density. Aggregation: sum."],
+            ["total_plant_capacity_mw", "Sum of operating capacity (OPER_CAP, MW) over a county's plants; the −999999 null sentinel and blanks count as 0, making this a lower bound."],
           ]}
         />
 
@@ -339,7 +355,7 @@ export function DataTab() {
           />
           <SchemaNote
             title="Point vs measure tables"
-            body="Datasets with explicit lat/lon (data centers, EV stations) emit both a long-format measure table and a GeoJSON point layer. The dashboard reads measure values from JSON and point features from GeoJSON; the on-map detail panels fill from the points."
+            body="Datasets with explicit lat/lon (data centers, EV stations, power plants & substations) emit both a long-format measure table and a GeoJSON point layer. The dashboard reads measure values from JSON and point features from GeoJSON; the on-map detail panels fill from the points."
           />
           <SchemaNote
             title="Scenario provenance"
