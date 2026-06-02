@@ -253,6 +253,24 @@ async function loadResidentialByRegion(regionType: "county" | "tract"): Promise<
   return out;
 }
 
+/**
+ * PowerInfrastructure (HIFLD): 4 observed county measures, single snapshot
+ * scenario. Structurally identical to DataCenters — scalar values, no hours.
+ */
+async function loadPowerInfrastructureCounty(): Promise<CountyData> {
+  const rows = await loadLongFormatCsv(
+    "va_ct_hifld_2026_power_infrastructure.csv.xz"
+  );
+  const out: CountyData = {};
+  for (const row of rows) {
+    if (row.region_type !== "county") continue;
+    const code = codeFor(row.measure, row.scenario, row.data_method, false);
+    if (!out[row.geoid]) out[row.geoid] = {};
+    out[row.geoid][code] = Number(row.value);
+  }
+  return out;
+}
+
 // --- merge per-pipeline outputs ---
 
 function mergeCountyData(a: CountyData, b: CountyData): CountyData {
@@ -293,15 +311,23 @@ async function main() {
     `  DataCentersProjected: ${Object.keys(dcProjected).length} counties × 20 scenarios`
   );
 
+  const powerInfra = await loadPowerInfrastructureCounty();
+  console.log(
+    `  PowerInfrastructure: ${Object.keys(powerInfra).length} counties`
+  );
+
   const counties = mergeCountyData(
     mergeCountyData(
       mergeCountyData(
-        mergeCountyData(dataCenters, evStations),
-        evDemand
+        mergeCountyData(
+          mergeCountyData(dataCenters, evStations),
+          evDemand
+        ),
+        residentialCounty
       ),
-      residentialCounty
+      dcProjected
     ),
-    dcProjected
+    powerInfra
   );
   console.log(`  Merged counties: ${Object.keys(counties).length}`);
 
@@ -347,6 +373,12 @@ async function main() {
   copyFileSync(
     path.join(SOURCE_DIR, "va_pt_im3_2026_data_centers.geojson"),
     path.join(OUT_GEO, "dc_existing.geojson")
+  );
+
+  // PowerInfrastructure (HIFLD) — 1,571 points (plants + substations)
+  copyFileSync(
+    path.join(SOURCE_DIR, "va_pt_hifld_2026_power_infrastructure.geojson"),
+    path.join(OUT_GEO, "power_infrastructure.geojson")
   );
 
   // DataCentersProjected — split the combined GeoJSON into 20 per-scenario files.

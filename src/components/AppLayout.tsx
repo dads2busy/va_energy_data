@@ -7,6 +7,7 @@ import { OverviewTab } from "./OverviewTab";
 import { EVTab } from "./EVTab";
 import { ResidentialTab } from "./ResidentialTab";
 import { DataCentersTab } from "./DataCentersTab";
+import { PowerTab } from "./PowerTab";
 import { DataTab } from "./DataTab";
 
 export function AppLayout() {
@@ -24,6 +25,7 @@ export function AppLayout() {
           {tab === "ev" && <EVTab />}
           {tab === "residential" && <ResidentialTab />}
           {tab === "data-centers" && <DataCentersTab />}
+          {tab === "power" && <PowerTab />}
           {tab === "data" && <DataTab />}
         </main>
         <SiteFooter />

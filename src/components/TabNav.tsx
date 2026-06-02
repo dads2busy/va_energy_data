@@ -10,6 +10,7 @@ const TABS = [
   { id: "data-centers", marker: "§II", label: "Data Center Pressure" },
   { id: "ev", marker: "§III", label: "EV Infrastructure" },
   { id: "residential", marker: "§IV", label: "Residential Adoption" },
+  { id: "power", marker: "§V", label: "Power Infrastructure" },
   { id: "data", marker: "Appendix", label: "Data" },
 ] as const;
 

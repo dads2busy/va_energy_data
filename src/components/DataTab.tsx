@@ -257,6 +257,42 @@ export function DataTab() {
 
         <DatasetSection
           index="06"
+          title="Power generation & grid infrastructure"
+          venue="HIFLD — Power Plants & Electric Substations"
+          attribution="Homeland Infrastructure Foundation-Level Data, republished by the 543rd Engineer Detachment GPC · snapshot 2026-05-29 · 189 plants + 1,382 substations"
+          chapter="Power Infrastructure (Ch. V)"
+          methodology={
+            <>
+              <p>
+                An observed inventory of Virginia's electrical infrastructure
+                drawn from two HIFLD ArcGIS feature services — Power Plants and
+                Electric Substations — queried with{" "}
+                <Code>where=STATE=&apos;VA&apos;</Code>. Power plants span
+                hydro, natural gas, nuclear, coal, solar, and other generating
+                stations; substations (69 kV and above) switch, transform, and
+                regulate the delivery of power to local load.
+              </p>
+              <p>
+                Each county is assigned directly from the source{" "}
+                <Code>COUNTYFIPS</Code> field (no spatial join). Plant capacity
+                sums the HIFLD <Code>OPER_CAP</Code> field; the null sentinel
+                (<Code>-999999</Code>) and missing values are treated as 0, so
+                county capacity is a lower bound. Per-facility fields (operator,
+                fuel source, capacity, voltage, status) persist on the point
+                layer for the on-map detail panel.
+              </p>
+            </>
+          }
+          measures={[
+            ["power_plant_count", "Count of HIFLD power plants per county."],
+            ["substation_count", "Count of HIFLD electric substations per county."],
+            ["power_facility_count", "Plants + substations per county."],
+            ["total_plant_capacity_mw", "Sum of HIFLD operating capacity (MW); unreported plants count as 0."],
+          ]}
+        />
+
+        <DatasetSection
+          index="07"
           title="Basemap & boundaries"
           venue="2020 Census county boundaries + CARTO Positron tiles"
           attribution="US Census Bureau (TIGER/Line 2020) · CARTO Positron via OpenStreetMap"
