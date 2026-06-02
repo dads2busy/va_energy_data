@@ -6,19 +6,29 @@ This dashboard lets readers of the CHARGE-MAP, REVI-Twin, RAISE, and Thorve scid
 
 ## Status
 
-**Phase 1** — Overview tab is fully wired; tabs 1–4 are stubbed and land in subsequent phases.
+All chapters are live, plus a Data appendix documenting every source dataset.
 
-| Tab | Status |
-|---|---|
-| Overview | Live (data center counts) |
-| EV Infrastructure | Stub (Phase 2) |
-| Residential Adoption | Stub (Phase 3) |
-| Data Center Pressure | Stub (Phase 3) |
-| Retrofit & Equity | Stub (Phase 4, blocked on RAISE pipeline) |
+| Tab | Chapter | Status |
+|---|---|---|
+| Data Centers | §I | Live — existing data-center facility counts (IM3 OSM atlas) |
+| Data Center Pressure | §II | Live — projected siting, 20 CERF scenarios (IM3) |
+| EV Infrastructure | §III | Live — CHARGE-MAP stations + hourly demand |
+| Residential Adoption | §IV | Live — REVI-Twin / Thorve adoption + PV generation |
+| Power Infrastructure | §V | Live — HIFLD power plants & substations |
+| Data | Appendix | Live — source datasets & methodology |
+
+Retrofit & Equity (RAISE) is documented in the appendix but not yet rendered — it's blocked on the RAISE pipeline.
 
 ## Data source
 
-Built-time CSVs from `~/git/social-data-commons/dashboard_data/va_energy_data/`. Each of the 5 energy pipelines in `social-data-commons/energy/*` has a `prepare.py` that drops its outputs there. The dashboard's `scripts/build-data.ts` transforms those CSVs into `public/data/*.json` at build time.
+Built-time CSVs from `~/git/social-data-commons/dashboard_data/va_energy_data/`. Each of the 6 energy pipelines in `social-data-commons/energy/*` has a `prepare.py` that drops its outputs there. The dashboard's `scripts/build-data.ts` transforms those CSVs into `public/data/*.json` at build time.
+
+The datasets:
+
+- **DataCenters** / **DataCentersProjected** — IM3 existing (OSM-derived) and CERF-projected data-center siting.
+- **EVChargingStations** / **EVChargingDemand** — CHARGE-MAP simulated stations and hourly charging demand.
+- **ResidentialEnergyScenario** — REVI-Twin + Thorve synthetic-household adoption and PV generation (county + tract).
+- **PowerInfrastructure** — *observed* HIFLD Power Plants & Electric Substations for Virginia (snapshot `2026-05-29`): per-county plant/substation/facility counts and total operating capacity (MW), plus a point overlay distinguishing plants from substations. County FIPS comes from HIFLD's `COUNTYFIPS`, with facilities lacking a usable code (e.g. the offshore CVOW wind farm) backfilled to the nearest 2020 county polygon so the point layer and county counts agree.
 
 ## Develop
 
