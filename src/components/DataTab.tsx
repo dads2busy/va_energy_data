@@ -1,6 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export function DataTab() {
   return (
@@ -342,6 +344,8 @@ export function DataTab() {
         />
       </div>
 
+      <LinkedDataSection />
+
       <section className="mt-16 border-t border-[--color-paper-edge] pt-8">
         <div className="rule-with-mark mb-6">
           <span className="font-mono text-[10px] uppercase tracking-widest">
@@ -455,7 +459,7 @@ function DatasetSection({
   );
 }
 
-function SchemaNote({ title, body }: { title: string; body: string }) {
+function SchemaNote({ title, body }: { title: string; body: ReactNode }) {
   return (
     <div className="border-l-2 border-[--color-paper-edge] pl-4">
       <h4 className="display text-base font-medium text-[--color-ink]">
@@ -465,6 +469,128 @@ function SchemaNote({ title, body }: { title: string; body: string }) {
         {body}
       </p>
     </div>
+  );
+}
+
+interface LinkedDataManifest {
+  graphs: Array<{ file: string; dataset: string; bytes: number; triples: number }>;
+  vocabulary: Array<{ file: string; description: string; bytes: number }>;
+}
+
+function formatBytes(bytes: number): string {
+  return bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function LinkedDataSection() {
+  const [manifest, setManifest] = useState<LinkedDataManifest | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    fetch(`${BASE}/linked-data/manifest.json`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then(setManifest)
+      .catch(() => setFailed(true));
+  }, []);
+
+  const fileLink = (file: string) => (
+    <a
+      href={`${BASE}/linked-data/${file}`}
+      download
+      className="text-[--color-energy-deep] underline decoration-[--color-paper-edge] hover:decoration-[--color-energy]"
+    >
+      {file}
+    </a>
+  );
+
+  return (
+    <section className="mt-16 border-t border-[--color-paper-edge] pt-8">
+      <div className="rule-with-mark mb-6">
+        <span className="font-mono text-[10px] uppercase tracking-widest">
+          Linked data (RDF)
+        </span>
+      </div>
+
+      <div className="max-w-3xl space-y-3 text-[14px] leading-relaxed text-[--color-ink]">
+        <p>
+          Four of the datasets above are also published as an RDF knowledge
+          graph, and their map layers are generated from it. Each pipeline
+          builds the graph from the source data, then regenerates the
+          dashboard&apos;s tables from the graph and checks them row for row
+          against the source before anything reaches these maps. Download the
+          graphs to query or link them with any RDF tool.
+        </p>
+      </div>
+
+      {failed && (
+        <p className="mt-5 text-[12px] italic text-[--color-ink-light]">
+          The linked-data manifest could not be loaded.
+        </p>
+      )}
+
+      {manifest && (
+        <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-2">
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+              Graphs
+            </div>
+            <ul className="mt-2 space-y-3">
+              {manifest.graphs.map((g) => (
+                <li key={g.file} className="border-l-2 border-[--color-paper-edge] pl-3">
+                  <div className="text-[13px] text-[--color-ink]">{g.dataset}</div>
+                  <div className="mt-0.5 break-all font-mono text-[11px]">{fileLink(g.file)}</div>
+                  <div className="mt-0.5 font-mono text-[10px] uppercase tracking-widest text-[--color-ink-light]">
+                    {formatBytes(g.bytes)} · {g.triples.toLocaleString()} triples
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-[--color-ink-muted]">
+              Vocabulary (Turtle)
+            </div>
+            <ul className="mt-2 space-y-3">
+              {manifest.vocabulary.map((v) => (
+                <li key={v.file} className="border-l-2 border-[--color-paper-edge] pl-3">
+                  <div className="font-mono text-[11px]">{fileLink(v.file)}</div>
+                  <div className="mt-0.5 text-[11px] leading-snug text-[--color-ink-muted]">
+                    {v.description} · {formatBytes(v.bytes)}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+        <SchemaNote
+          title="Format"
+          body={
+            <>
+              Sorted N-Triples (one triple per line), xz-compressed. Decompress
+              with <Code>xz -d</Code>, or load directly, e.g. in Python:{" "}
+              <Code>rdflib.Graph().parse(data=lzma.open(path).read(), format=&quot;nt&quot;)</Code>.
+              Load the vocabulary files alongside for labels and code lists.
+            </>
+          }
+        />
+        <SchemaNote
+          title="Vocabularies"
+          body="County statistics use the W3C RDF Data Cube: one observation per county, period, scenario and measure. Facilities and sites are GeoSPARQL features with WKT points; codes (fuel, status, charger level, growth tier) are SKOS concepts; provenance uses PROV-O and units QUDT."
+        />
+        <SchemaNote
+          title="Identifiers"
+          body="IRIs live under https://w3id.org/sdc/, a placeholder namespace that does not resolve yet. Treat them as stable identifiers, not links. Stations share IRIs across graphs, so the EV demand and EV station graphs join directly."
+        />
+        <SchemaNote
+          title="Coverage"
+          body="Existing data centers (Dataset 01) and residential adoption (Dataset 05) are not yet published as linked data; their map layers are built from the source tables."
+        />
+      </div>
+    </section>
   );
 }
 
@@ -528,7 +654,7 @@ function PaperEntry({
 
 function Code({ children }: { children: ReactNode }) {
   return (
-    <code className="rounded border border-[--color-paper-edge] bg-[--color-paper-deep] px-1 py-px font-mono text-[11px] text-[--color-ink]">
+    <code className="rounded border border-[--color-paper-edge] bg-[--color-paper-deep] px-1 py-px font-mono text-[11px] text-[--color-ink] [overflow-wrap:anywhere]">
       {children}
     </code>
   );

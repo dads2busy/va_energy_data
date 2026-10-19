@@ -8,7 +8,7 @@
  * Phase 4 adds DataCentersProjected (6 measures × 20 scenarios) and splits the
  * combined projected-points GeoJSON into 20 per-scenario files.
  */
-import { readFileSync, writeFileSync, mkdirSync, copyFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, copyFileSync, statSync } from "node:fs";
 import { parse } from "csv-parse/sync";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -22,9 +22,11 @@ const SOURCE_DIR = path.resolve(
 );
 const OUT_DATA = path.resolve(process.cwd(), "public/data");
 const OUT_GEO = path.resolve(process.cwd(), "public/geo");
+const OUT_LINKED = path.resolve(process.cwd(), "public/linked-data");
 
 mkdirSync(OUT_DATA, { recursive: true });
 mkdirSync(OUT_GEO, { recursive: true });
+mkdirSync(OUT_LINKED, { recursive: true });
 
 // --- GeoJSON splitter ---
 
@@ -282,6 +284,53 @@ function mergeCountyData(a: CountyData, b: CountyData): CountyData {
   return merged;
 }
 
+// --- linked data (RDF) downloads ---
+
+// Knowledge graphs (sorted N-Triples, xz-compressed) behind the map layers, and
+// the vocabulary they use. Published as downloads on the Data tab; the
+// manifest gives each file's size and, for graphs, its triple count.
+const LINKED_DATA_GRAPHS: Array<{ file: string; dataset: string }> = [
+  { file: "va_ctpt_im3_2035_data_centers_projected.nt.xz", dataset: "Projected data center siting" },
+  { file: "va_ctpt_sim_2030_run30_ev_charging_stations.nt.xz", dataset: "EV charging station inventory" },
+  { file: "va_ctpt_sim_2026_ev_charging_demand.nt.xz", dataset: "EV charging demand (hourly)" },
+  { file: "va_ctpt_hifld_2026_power_infrastructure.nt.xz", dataset: "Power generation & grid infrastructure" },
+];
+
+const LINKED_DATA_VOCABULARY: Array<{ file: string; description: string }> = [
+  { file: "sdc-core.ttl", description: "Core ontology: regions, scenarios, data methods, RDF Data Cube components" },
+  { file: "sdc-energy.ttl", description: "Energy extension: facilities, stations, projected sites, code lists" },
+  { file: "sdc-core-shapes.ttl", description: "SHACL shapes for observations, datasets and regions" },
+  { file: "sdc-energy-shapes.ttl", description: "SHACL shapes for the energy entities" },
+];
+
+async function countTriples(xzPath: string): Promise<number> {
+  // N-Triples: one triple per line.
+  const text = await decompressCsvXz(xzPath);
+  let n = 0;
+  for (let i = text.indexOf("\n"); i !== -1; i = text.indexOf("\n", i + 1)) n++;
+  return n;
+}
+
+async function publishLinkedData() {
+  const graphs = [];
+  for (const { file, dataset } of LINKED_DATA_GRAPHS) {
+    const src = path.join(SOURCE_DIR, file);
+    copyFileSync(src, path.join(OUT_LINKED, file));
+    graphs.push({ file, dataset, bytes: statSync(src).size, triples: await countTriples(src) });
+  }
+  const vocabulary = LINKED_DATA_VOCABULARY.map(({ file, description }) => {
+    const src = path.join(SOURCE_DIR, "vocabulary", file);
+    copyFileSync(src, path.join(OUT_LINKED, file));
+    return { file, description, bytes: statSync(src).size };
+  });
+  writeFileSync(
+    path.join(OUT_LINKED, "manifest.json"),
+    JSON.stringify({ graphs, vocabulary }, null, 2)
+  );
+  const total = graphs.reduce((a, g) => a + g.triples, 0);
+  console.log(`  linked-data: ${graphs.length} graphs (${total.toLocaleString()} triples), ${vocabulary.length} vocabulary files`);
+}
+
 // --- main ---
 
 async function main() {
@@ -404,6 +453,8 @@ async function main() {
     JSON.stringify(split.values, null, 2)
   );
   console.log(`  dc_scenarios.json: ${split.values.length} scenarios`);
+
+  await publishLinkedData();
 
   console.log("Done.");
 }
