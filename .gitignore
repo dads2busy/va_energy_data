@@ -10,6 +10,7 @@ next-env.d.ts
 # Build artifacts produced by scripts/build-data.ts
 public/data/
 public/geo/
+public/linked-data/
 
 # Environment
 .env*

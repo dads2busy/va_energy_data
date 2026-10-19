@@ -30,6 +30,10 @@ The datasets:
 - **ResidentialEnergyScenario** — REVI-Twin + Thorve synthetic-household adoption and PV generation (county + tract).
 - **PowerInfrastructure** — *observed* HIFLD Power Plants & Electric Substations for Virginia (snapshot `2026-05-29`): per-county plant/substation/facility counts and total operating capacity (MW), plus a point overlay distinguishing plants from substations. County FIPS comes from HIFLD's `COUNTYFIPS`, with facilities lacking a usable code (e.g. the offshore CVOW wind farm) backfilled to the nearest 2020 county polygon so the point layer and county counts agree.
 
+### Linked data (RDF)
+
+Four datasets (DataCentersProjected, EV stations, EV demand, HIFLD power infrastructure) are also published as RDF knowledge graphs. Each pipeline in `social-data-commons` builds its graph, then stages the dashboard CSVs above *from* that graph after checking them row for row against the source data. `scripts/build-data.ts` copies the graphs (`*.nt.xz`, sorted N-Triples) and their vocabulary (`vocabulary/*.ttl`) into `public/linked-data/` with a `manifest.json`, and the Data tab lists them as downloads.
+
 ## Develop
 
 Requires `~/git/social-data-commons` checked out alongside this repo with the energy pipelines having run.
