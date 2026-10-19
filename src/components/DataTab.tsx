@@ -514,8 +514,8 @@ function LinkedDataSection() {
 
       <div className="max-w-3xl space-y-3 text-[14px] leading-relaxed text-[--color-ink]">
         <p>
-          Four of the datasets above are also published as an RDF knowledge
-          graph, and their map layers are generated from it. Each pipeline
+          Every dataset above (except the basemap) is also published as an
+          RDF knowledge graph, and its map layers are generated from it. Each pipeline
           builds the graph from the source data, then regenerates the
           dashboard&apos;s tables from the graph and checks them row for row
           against the source before anything reaches these maps. Download the
@@ -583,11 +583,11 @@ function LinkedDataSection() {
         />
         <SchemaNote
           title="Identifiers"
-          body="IRIs live under https://w3id.org/sdc/, a placeholder namespace that does not resolve yet. Treat them as stable identifiers, not links. Stations share IRIs across graphs, so the EV demand and EV station graphs join directly."
+          body="IRIs live under https://w3id.org/sdc/, a placeholder namespace that does not resolve yet. Treat them as stable identifiers, not links. Counties are shared across all graphs, and stations are shared between the EV demand and EV station graphs, so those join directly."
         />
         <SchemaNote
-          title="Coverage"
-          body="Existing data centers (Dataset 01) and residential adoption (Dataset 05) are not yet published as linked data; their map layers are built from the source tables."
+          title="Census vintages"
+          body="Regions are 2020 Census geographies, except the residential tracts (Dataset 05), which are 2010 Census tracts in the source simulation. They are published as sdcid:tract-2010/… with sdc:vintage, so they never collide with 2020 tracts. 268 of them do not exist in 2020 and cannot be drawn on the 2020 tract map."
         />
       </div>
     </section>
