@@ -290,9 +290,11 @@ function mergeCountyData(a: CountyData, b: CountyData): CountyData {
 // the vocabulary they use. Published as downloads on the Data tab; the
 // manifest gives each file's size and, for graphs, its triple count.
 const LINKED_DATA_GRAPHS: Array<{ file: string; dataset: string }> = [
+  { file: "va_ctpt_im3_2026_data_centers.nt.xz", dataset: "Existing data center facilities" },
   { file: "va_ctpt_im3_2035_data_centers_projected.nt.xz", dataset: "Projected data center siting" },
   { file: "va_ctpt_sim_2030_run30_ev_charging_stations.nt.xz", dataset: "EV charging station inventory" },
   { file: "va_ctpt_sim_2026_ev_charging_demand.nt.xz", dataset: "EV charging demand (hourly)" },
+  { file: "va_cttr_sim_2030_residential_energy_scenario.nt.xz", dataset: "Residential adoption & PV generation" },
   { file: "va_ctpt_hifld_2026_power_infrastructure.nt.xz", dataset: "Power generation & grid infrastructure" },
 ];
 

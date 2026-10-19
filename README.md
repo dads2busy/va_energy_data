@@ -32,7 +32,7 @@ The datasets:
 
 ### Linked data (RDF)
 
-Four datasets (DataCentersProjected, EV stations, EV demand, HIFLD power infrastructure) are also published as RDF knowledge graphs. Each pipeline in `social-data-commons` builds its graph, then stages the dashboard CSVs above *from* that graph after checking them row for row against the source data. `scripts/build-data.ts` copies the graphs (`*.nt.xz`, sorted N-Triples) and their vocabulary (`vocabulary/*.ttl`) into `public/linked-data/` with a `manifest.json`, and the Data tab lists them as downloads.
+All six datasets (existing and projected data centers, EV stations, EV demand, residential adoption, HIFLD power infrastructure) are also published as RDF knowledge graphs. The residential tracts are 2010 Census tracts in the source and are published as such. Each pipeline in `social-data-commons` builds its graph, then stages the dashboard CSVs above *from* that graph after checking them row for row against the source data. `scripts/build-data.ts` copies the graphs (`*.nt.xz`, sorted N-Triples) and their vocabulary (`vocabulary/*.ttl`) into `public/linked-data/` with a `manifest.json`, and the Data tab lists them as downloads.
 
 ## Develop
 
