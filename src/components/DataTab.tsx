@@ -594,7 +594,7 @@ function LinkedDataSection() {
         />
         <SchemaNote
           title="Identifiers"
-          body="IRIs live under https://w3id.org/sdc/, a placeholder namespace that does not resolve yet. Treat them as stable identifiers, not links. Counties are shared across all graphs, and stations are shared between the EV demand and EV station graphs, so those join directly."
+          body="IRIs live under https://w3id.org/social-data-commons/, a namespace that is not yet registered, so they do not resolve and may still change before registration. Counties are shared across all graphs, and stations are shared between the EV demand and EV station graphs, so those join directly."
         />
         <SchemaNote
           title="Census vintages"
