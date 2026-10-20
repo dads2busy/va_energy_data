@@ -17,10 +17,10 @@ import {
 import { useDefaultTopCounty } from "./useDefaultTopCounty";
 
 const STATIC_OPTIONS: { label: string; measure: string; isRate: boolean }[] = [
-  { label: "PV adoption", measure: "pv_adoption_rate", isRate: true },
-  { label: "EV adoption", measure: "ev_adoption_rate", isRate: true },
-  { label: "Battery adoption", measure: "battery_adoption_rate", isRate: true },
-  { label: "Households", measure: "synthetic_household_count", isRate: false },
+  { label: "PV adoption", measure: "pv_adoption_rate_geo20", isRate: true },
+  { label: "EV adoption", measure: "ev_adoption_rate_geo20", isRate: true },
+  { label: "Battery adoption", measure: "battery_adoption_rate_geo20", isRate: true },
+  { label: "Households", measure: "synthetic_household_count_geo20", isRate: false },
 ];
 
 const formatPct = (v: number) => `${Math.round(v * 100)}%`;
@@ -37,7 +37,7 @@ export function ResidentialTab() {
     variables,
     countyNames,
   } = useData();
-  const [selectedMeasure, setSelectedMeasure] = useState("pv_adoption_rate");
+  const [selectedMeasure, setSelectedMeasure] = useState("pv_adoption_rate_geo20");
   const [resRaw] = useQueryState("res", { defaultValue: "county" as Resolution });
   const res: Resolution = resRaw === "tract" ? "tract" : "county";
   const selectedGeoid = useSelectionStore((s) => s.selectedGeoid);
@@ -114,9 +114,9 @@ export function ResidentialTab() {
     }
   }
 
-  // Find pv_generation_kwh hourly code
+  // Find pv_generation_kwh_geo20 hourly code
   const pvCode = Object.entries(variables).find(
-    ([, m]) => m.measure === "pv_generation_kwh"
+    ([, m]) => m.measure === "pv_generation_kwh_geo20"
   )?.[0];
 
   // Hourly PV gen for the selected county/tract (or statewide sum)
@@ -203,7 +203,7 @@ export function ResidentialTab() {
                   Loading tract data
                 </div>
                 <div className="display mt-2 italic text-[--color-ink-light]">
-                  Drawing 1,872 polygons…
+                  Drawing 2,186 polygons…
                 </div>
               </div>
             </div>
@@ -319,9 +319,11 @@ export function ResidentialTab() {
 
           <div className="marginalia">
             <em>Tract view caveat.</em> Tract-level adoption rates and PV
-            profiles ride on top of a synthetic population. Counts are exact;
-            rates are estimates. The PV generation profile uses a 23% sample of
-            statewide PV adopters, scaled by per-tract adopter counts.
+            profiles ride on top of a synthetic population built on 2010
+            census tracts, redistributed here onto 2020 tracts: counts by area
+            overlap, rates household-weighted, so tract values are estimates
+            (county values are exact). The PV generation profile uses a 23%
+            sample of statewide PV adopters, scaled by per-tract adopter counts.
           </div>
 
           <div className="border-l-2 border-[--color-paper-edge] pl-4">
@@ -411,13 +413,13 @@ function ResidentialCountyDetailPanel({
     const v = countyData[geoid]?.[c];
     return typeof v === "number" ? v : null;
   };
-  const households = get("synthetic_household_count");
-  const pv = get("pv_adoption_rate");
-  const ev = get("ev_adoption_rate");
-  const bat = get("battery_adoption_rate");
+  const households = get("synthetic_household_count_geo20");
+  const pv = get("pv_adoption_rate_geo20");
+  const ev = get("ev_adoption_rate_geo20");
+  const bat = get("battery_adoption_rate_geo20");
 
   // Peak PV generation hour for context, if available.
-  const pvHourlyCode = codeFor("pv_generation_kwh");
+  const pvHourlyCode = codeFor("pv_generation_kwh_geo20");
   let peakKwh: number | null = null;
   let peakHour: number | null = null;
   if (pvHourlyCode) {

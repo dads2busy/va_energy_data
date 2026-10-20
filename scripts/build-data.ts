@@ -209,7 +209,9 @@ async function loadDataCentersProjectedCounty(): Promise<CountyData> {
 
 /**
  * ResidentialEnergyScenario: 5 measures — 4 static scalars + 1 hourly array.
- * pv_generation_kwh: 24-element array (one row per hour, datetime carries T##:).
+ * pv_generation_kwh_geo20: 24-element array (one row per hour, datetime carries T##:).
+ * Measures are spec §7.1-suffixed: *_geo20 rows (counties + 2020 tracts) are used;
+ * *_geo10 rows (the simulation's original 2010 tracts) are not shown on the dashboard.
  * All other measures: scalar (datetime is "2030-01-01").
  * Supports both county and tract region_type.
  */
@@ -221,12 +223,13 @@ async function loadResidentialByRegion(regionType: "county" | "tract"): Promise<
 
   for (const row of rows) {
     if (row.region_type !== regionType) continue;
+    if (row.measure.endsWith("_geo10")) continue;
     const valueRaw = row.value;
     if (valueRaw === "" || valueRaw === undefined) continue;
 
-    // `pv_generation_kwh` is hourly (datetime carries an hour)
+    // `pv_generation_kwh_geo20` is hourly (datetime carries an hour)
     // All other residential measures are static (datetime is "2030-01-01")
-    const isHourly = row.measure === "pv_generation_kwh";
+    const isHourly = row.measure === "pv_generation_kwh_geo20";
     const code = codeFor(row.measure, row.scenario, row.data_method, isHourly);
 
     if (!out[row.geoid]) out[row.geoid] = {};

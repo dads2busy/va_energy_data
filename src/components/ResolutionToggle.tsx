@@ -52,7 +52,7 @@ export function ResolutionToggle({ paramKey = "res" }: Props) {
             >
               {active && <CompassMark size={11} />}
             </span>
-            <span>{r === "county" ? "County (133)" : "Tract (1,872)"}</span>
+            <span>{r === "county" ? "County (133)" : "Tract (2,186)"}</span>
             {r === "tract" && tractLoading && (
               <span className="ml-1 font-mono text-[9px] text-[--color-ink-muted]">
                 loading…
