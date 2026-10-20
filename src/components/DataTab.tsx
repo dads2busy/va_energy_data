@@ -236,7 +236,7 @@ export function DataTab() {
                 curve at both county and tract resolutions.
               </p>
               <p>
-                Counts (<Code>synthetic_household_count</Code>) are direct
+                Counts (<Code>synthetic_household_count_geo20</Code>) are direct
                 sums on FIPS constructed from the source admin codes.
                 Adoption rates are the mean of <Code>is_pv</Code>,{" "}
                 <Code>is_ev</Code>, <Code>is_battery</Code> across households
@@ -246,14 +246,25 @@ export function DataTab() {
                 the total adopter count — assuming the profiled subset is
                 locally representative.
               </p>
+              <p>
+                The simulation uses 2010 census tracts, so tract values are
+                redistributed onto 2020 tracts with{" "}
+                <Code>sdc-census10to20</Code>: counts and PV generation by
+                count-conserving areal interpolation, adoption rates
+                household-weighted. A 2020 tract overlapping a 2010 tract
+                without PV profiles shows no PV generation rather than an
+                undercount. County values are unchanged; the original 2010-tract
+                values ship in the source file as <Code>_geo10</Code>{" "}
+                measures.
+              </p>
             </>
           }
           measures={[
-            ["synthetic_household_count", "Households in the geography."],
-            ["pv_adoption_rate", "Fraction of households flagged as PV adopters."],
-            ["ev_adoption_rate", "Fraction of households flagged as EV adopters."],
-            ["battery_adoption_rate", "Fraction of households flagged as battery adopters."],
-            ["pv_generation_kwh", "Hourly PV generation profile (kWh, 24 hours)."],
+            ["synthetic_household_count_geo20", "Households in the geography (2020 tracts)."],
+            ["pv_adoption_rate_geo20", "Fraction of households flagged as PV adopters."],
+            ["ev_adoption_rate_geo20", "Fraction of households flagged as EV adopters."],
+            ["battery_adoption_rate_geo20", "Fraction of households flagged as battery adopters."],
+            ["pv_generation_kwh_geo20", "Hourly PV generation profile (kWh, 24 hours)."],
           ]}
         />
 
@@ -339,7 +350,7 @@ export function DataTab() {
           }
           measures={[
             ["county.geojson", "133 county polygons with geoid + region_name."],
-            ["tract.geojson", "1,872 census tract polygons (lazy-loaded on the Residential tab)."],
+            ["tract.geojson", "2,186 2020 census tract polygons (lazy-loaded on the Residential tab)."],
           ]}
         />
       </div>
@@ -587,7 +598,7 @@ function LinkedDataSection() {
         />
         <SchemaNote
           title="Census vintages"
-          body="Regions are 2020 Census geographies, except the residential tracts (Dataset 05), which are 2010 Census tracts in the source simulation. They are published as sdcid:tract-2010/… with sdc:vintage, so they never collide with 2020 tracts. 268 of them do not exist in 2020 and cannot be drawn on the 2020 tract map."
+          body="All map regions are 2020 Census geographies. The residential simulation (Dataset 05) uses 2010 tracts; its graph carries both the converted 2020-tract values (_geo20) and the originals (_geo10) on sdcid:tract-2010/… with sdc:vintage, so 2010 and 2020 tracts never collide."
         />
       </div>
     </section>
