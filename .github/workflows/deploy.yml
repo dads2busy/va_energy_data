@@ -43,8 +43,8 @@ jobs:
 
       - name: Build static site
         working-directory: va_energy_data
-        env:
-          NEXT_PUBLIC_BASE_PATH: /va_energy_data
+        # Served at the root of va-energy-data.policy-analytics.net, so no
+        # basePath (NEXT_PUBLIC_BASE_PATH unset).
         run: npm run build
 
       - name: Upload Pages artifact
