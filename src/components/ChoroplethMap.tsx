@@ -13,6 +13,9 @@ interface FeatureCollection {
 }
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+// CARTO basemaps require an API key (public by design; restrict it to the
+// site's domains in the CARTO dashboard).
+const CARTO_KEY = process.env.NEXT_PUBLIC_CARTO_KEY ?? "";
 
 /**
  * A 5-step warm ramp tuned to the cream-paper aesthetic.
@@ -126,7 +129,7 @@ export function ChoroplethMap({
         // CARTO Positron — clean, light, neutral. CSS filter in globals.css
         // gives it the muted "paper" feel without needing a custom tile server.
         L.tileLayer(
-          "https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
+          `https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png?key=${CARTO_KEY}`,
           {
             attribution:
               '© <a href="https://www.openstreetmap.org/copyright">OSM</a> · CARTO',
