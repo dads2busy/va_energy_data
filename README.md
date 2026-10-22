@@ -38,6 +38,8 @@ All six datasets (existing and projected data centers, EV stations, EV demand, r
 
 Requires `~/git/social-data-commons` checked out alongside this repo with the energy pipelines having run.
 
+The basemap tiles need a CARTO API key (https://carto.com/basemaps/apikey). Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_CARTO_KEY`; the Pages workflow reads it from the `CARTO_KEY` repository variable.
+
 ```bash
 npm install
 npm run build:data   # transforms CSVs from ../social-data-commons into public/data/
